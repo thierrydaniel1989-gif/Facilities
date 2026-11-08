@@ -1,0 +1,2094 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Caisse">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#0B6E5A">
+<meta name="color-scheme" content="light dark">
+<title>Caisse</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+:root{
+  --bg:#E9EDF1; --surface:#FFFFFF; --surface2:#F3F5F8; --ink:#101828; --mute:#667085;
+  --line:#D5DBE3; --accent:#0B6E5A; --accent-ink:#FFFFFF; --warn:#B42318; --scrim:rgba(10,15,20,.5);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0E1318; --surface:#171E26; --surface2:#1F2832; --ink:#EEF2F6; --mute:#93A0B0;
+    --line:#2A3541; --accent:#2BB596; --accent-ink:#04201A; --warn:#F97066; --scrim:rgba(0,0,0,.6);
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%}
+body{
+  font-family:ui-rounded,"SF Pro Rounded",system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:var(--bg);color:var(--ink);font-size:16px;line-height:1.35;
+  -webkit-tap-highlight-color:transparent;overscroll-behavior:none;
+  font-variant-numeric:tabular-nums;
+}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+#app{display:flex;flex-direction:column;height:100dvh;max-width:720px;margin:0 auto}
+header{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  padding:calc(env(safe-area-inset-top) + 14px) 18px 10px;
+}
+header h1{margin:0;font-size:26px;font-weight:750;letter-spacing:-.01em}
+.day{text-align:right;color:var(--mute);font-size:13px}
+.day b{display:block;color:var(--ink);font-size:20px;font-weight:700}
+main{flex:1;overflow-y:auto;padding:4px 12px 150px;-webkit-overflow-scrolling:touch}
+
+/* Grille produits */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
+.tile{
+  position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:8px;
+  min-height:96px;padding:12px;text-align:left;
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;
+}
+.tile:active{transform:scale(.97)}
+.tile .tc{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.02em;min-height:18px;padding-right:30px}
+.tile .tn{font-weight:650;font-size:15px;line-height:1.2}
+.tile .tp{color:var(--mute);font-size:14px}
+.tile .tp i{display:block;font-style:normal;font-size:12px}
+.tile.out{opacity:.45}
+.badge{
+  position:absolute;top:8px;right:8px;min-width:24px;height:24px;padding:0 6px;
+  display:grid;place-items:center;border-radius:12px;
+  background:var(--accent);color:var(--accent-ink);font-size:13px;font-weight:700;
+}
+.empty{display:grid;gap:10px;padding:36px 18px;text-align:center;color:var(--mute)}
+
+/* Barre panier */
+#cartbar{
+  position:fixed;left:12px;right:12px;
+  bottom:calc(58px + env(safe-area-inset-bottom) + 10px);
+  max-width:696px;margin:0 auto;
+}
+#cartbar button{
+  width:100%;height:58px;padding:0 20px;border:0;border-radius:16px;
+  display:flex;justify-content:space-between;align-items:center;
+  background:var(--accent);color:var(--accent-ink);font-size:17px;font-weight:700;
+  box-shadow:0 6px 18px rgba(0,0,0,.18);
+}
+
+/* Navigation */
+nav{
+  display:flex;background:var(--surface);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+nav button{
+  flex:1;height:58px;border:0;background:none;color:var(--mute);font-size:15px;font-weight:600;
+  position:relative;
+}
+nav button.on{color:var(--accent)}
+nav button.on::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;border-radius:0 0 3px 3px;background:var(--accent)}
+
+/* Listes (historique, produits) */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.stat span{display:block;color:var(--mute);font-size:12px}
+.stat b{font-size:17px}
+.dayhead{margin:16px 4px 6px;color:var(--mute);font-size:13px;font-weight:600}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.item{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+  padding:13px 14px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;
+}
+.item:last-child{border-bottom:0}
+.item small{display:block;color:var(--mute);font-size:13px}
+.item .amt{font-weight:700;white-space:nowrap}
+.item .neg{color:var(--warn)}
+.tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;background:var(--surface2);border:1px solid var(--line);font-size:12px;color:var(--mute)}
+.addrow{margin-bottom:12px}
+.lft{display:flex;align-items:center;gap:12px;min-width:0}
+.cd{min-width:58px;padding:6px 8px;border-radius:8px;background:var(--surface2);border:1px solid var(--line);text-align:center;font-weight:700;font-size:13px;color:var(--accent);flex:none}
+#q{margin-bottom:12px}
+/* Feuilles */
+#sheet{position:fixed;inset:0;display:none;z-index:10}
+#sheet.open{display:block}
+.scrim{position:absolute;inset:0;background:var(--scrim)}
+.panel{
+  position:absolute;left:0;right:0;bottom:0;margin:0 auto;max-width:560px;max-height:90dvh;overflow-y:auto;
+  background:var(--surface);border-radius:22px 22px 0 0;
+  padding:8px 18px calc(18px + env(safe-area-inset-bottom));
+}
+.panel.enter{animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion: reduce){.panel.enter{animation:none}}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 10px}
+.panel h2{margin:0 0 12px;font-size:20px}
+
+.receipt{
+  border:1.5px dashed var(--line);border-radius:8px;padding:6px 14px;margin-bottom:14px;background:var(--surface2);
+}
+.rl{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:9px 0}
+.rn{font-weight:600}
+.rn small{display:block;color:var(--mute);font-weight:400;font-size:13px}
+.rt{min-width:70px;text-align:right;font-weight:600}
+.stepper{display:flex;align-items:center;gap:2px}
+.stepper button{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:20px;line-height:1}
+.stepper span{min-width:26px;text-align:center;font-weight:700}
+.sep{border-top:1.5px dashed var(--line);margin:4px 0}
+.row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;gap:12px}
+.row input{width:110px;text-align:right}
+.row.big{font-size:22px;font-weight:750;padding:10px 0 8px}
+.tl{display:flex;justify-content:space-between;gap:10px;padding:5px 0}
+
+.actions{display:flex;gap:10px;margin-top:6px}
+.actions .btn{flex:1}
+.btn{
+  height:54px;border-radius:14px;border:1px solid var(--line);background:var(--surface2);
+  font-size:17px;font-weight:650;padding:0 16px;
+}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--warn)}
+.btn:disabled{opacity:.4}
+.btn.block{width:100%}
+.stack{display:grid;gap:10px}
+
+input[type=text],input:not([type]),input[inputmode]{
+  height:48px;padding:0 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-size:17px;width:100%;
+}
+label{display:block;color:var(--mute);font-size:13px;margin:10px 0 5px}
+.row label{margin:0;font-size:16px;color:var(--ink)}
+
+.due{font-size:38px;font-weight:800;letter-spacing:-.02em;margin:0 0 12px}
+.seg{display:flex;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:3px;margin-bottom:6px}
+.seg button{flex:1;height:42px;border:0;border-radius:9px;background:none;font-weight:650;color:var(--mute)}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.chips button{height:40px;padding:0 16px;border-radius:20px;border:1px solid var(--line);background:var(--surface2);font-weight:600}
+.rendu{font-size:24px;font-weight:750;margin:6px 0 14px}
+.rendu.ok{color:var(--accent)}
+.rendu.ko{color:var(--warn)}
+.note{color:var(--mute);margin:12px 0 16px}
+.status{margin:0 0 10px;color:var(--mute);font-size:14px}
+
+.logoRow{display:flex;gap:12px;align-items:center;margin:4px 0 8px}
+.logoRow .stack{flex:1}
+.logoRow .btn{height:46px;font-size:15px}
+.logoPrev{width:96px;height:96px;flex:none;border-radius:14px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;overflow:hidden;color:#667085;font-size:13px}
+.logoPrev img{max-width:100%;max-height:100%;object-fit:contain}
+/* Rapports (historique, stock) : aperçu et impression */
+.rp{color:#000;background:#fff;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:12px;line-height:1.4;width:100%}
+.rp h1{font-size:18px;margin:0 0 2px;color:#000}
+.rp .sub{color:#444;margin-bottom:10px}
+.rp table{width:100%;border-collapse:collapse;margin:8px 0}
+.rp th,.rp td{border-bottom:1px solid #bbb;padding:5px 6px;text-align:left;vertical-align:top}
+.rp th{border-bottom:2px solid #000;font-size:11px;text-transform:uppercase}
+.rp .r{text-align:right;white-space:nowrap}
+.rp .det td{color:#444;font-size:11px;border-bottom:1px solid #ddd;padding-top:0}
+.rp .sum td{font-weight:700;border-top:2px solid #000;border-bottom:0}
+.rp .b{font-weight:700}
+.rp tr{break-inside:avoid}
+.paper.wide{width:100%;max-height:48dvh;overflow:auto;padding:16px}
+.paper.wide .rp{min-width:400px}
+.chips button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.seg button{padding:0 4px;font-size:15px}
+/* Ticket : aperçu à l'écran et impression */
+.tk{color:#000;background:#fff;font-family:ui-monospace,Menlo,"Courier New",monospace;font-size:12px;line-height:1.35;width:var(--tkw,72mm);max-width:100%}
+.tk .plogo{display:block;margin:0 auto 4px;max-width:100%;max-height:26mm}
+.tk .pc{text-align:center}
+.tk .pb{font-weight:700}
+.tk .pbig{font-size:15px}
+.tk .pr{display:flex;justify-content:space-between;gap:8px}
+.tk .ps{border-top:1px dashed #000;margin:6px 0}
+.tk .pl{margin-top:4px}
+.paper{background:#fff;border:1px solid var(--line);border-radius:6px;padding:16px 14px;margin:0 auto 14px;width:fit-content;max-width:100%;box-shadow:0 2px 10px rgba(0,0,0,.14)}
+#printArea{display:none}
+@media print{
+  @page{margin:6mm}
+  html,body{background:#fff!important;height:auto!important;overflow:visible!important}
+  #app,#sheet,#toast,#cartbar{display:none!important}
+  #printArea{display:block!important;margin:0 auto}
+}
+#toast{
+  position:fixed;left:50%;transform:translateX(-50%);bottom:calc(140px + env(safe-area-inset-bottom));
+  background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:15px;
+  z-index:20;max-width:90vw;text-align:center;
+}
+
+/* Écrans larges (iPad) : grille à gauche, panier permanent à droite */
+#main:not(.mainfixed){width:100%;max-width:820px;margin:0 auto}
+@media (min-width:740px){
+  #app{max-width:none}
+  header{padding-left:24px;padding-right:24px}
+  header h1{font-size:30px}
+  main{padding:4px 20px 20px}
+  main.mainfixed{overflow:hidden}
+  .split{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:18px;height:100%}
+  .split .left{overflow-y:auto;min-height:0;padding:2px 2px 20px;-webkit-overflow-scrolling:touch}
+  .cartpane{
+    display:flex;flex-direction:column;min-height:0;overflow:hidden;
+    background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px 18px 18px;
+  }
+  .cartpane h2{margin:0 0 10px;font-size:20px}
+  .cartpane .cp-body{flex:1;overflow-y:auto;min-height:0;margin-bottom:12px}
+  .cartpane .receipt{margin-bottom:0}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .tile{min-height:116px;padding:14px}
+  .tile .tn{font-size:17px}
+  .tile .tp{font-size:15px}
+  #cartbar{display:none!important}
+  nav button{height:64px;font-size:16px}
+  #toast{bottom:90px}
+  .panel{
+    top:50%;bottom:auto;max-height:86dvh;border-radius:22px;padding-top:14px;
+    transform:translateY(-50%);
+  }
+  .panel.enter{animation:pop .2s ease-out}
+  @keyframes pop{from{opacity:0;transform:translateY(-46%)}to{opacity:1;transform:translateY(-50%)}}
+  .grab{display:none}
+}
+@media (min-width:740px) and (prefers-reduced-motion: reduce){.panel.enter{animation:none}}
+.stats.four{grid-template-columns:repeat(2,1fr)}
+@media (min-width:740px){.stats.four{grid-template-columns:repeat(4,1fr)}}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.keypad button{height:50px;border-radius:12px;border:1px solid var(--line);background:var(--surface2);font-size:22px;font-weight:650}
+.keypad button:active{background:var(--line)}
+input.amount{height:58px;font-size:28px;font-weight:700;text-align:right;caret-color:transparent}
+.tile.free{background:var(--surface2);border-style:dashed}
+@media (min-width:740px){.keypad button{height:56px}}
+.btn.sm{height:38px;padding:0 14px;font-size:15px;min-width:0}
+.holdrow{margin-top:8px}
+.bars{display:flex;align-items:stretch;gap:8px;height:150px;padding:12px 10px 8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
+.bars .bc{flex:1;display:flex;flex-direction:column;align-items:center;min-width:0;font-size:11px;color:var(--mute)}
+.bars .bt{flex:1;width:100%;display:flex;align-items:flex-end}
+.bars i{display:block;width:100%;background:var(--accent);border-radius:6px 6px 0 0;min-height:2px}
+.bars span{height:16px;line-height:16px}
+.backrow{margin-bottom:10px}
+.pill{display:inline-block;padding:1px 8px;border-radius:8px;background:var(--accent);color:var(--accent-ink);font-size:12px;margin-left:6px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1 id="appTitle">Caisse</h1>
+    <div class="day">Aujourd'hui<b id="dayTotal">0 Ar</b></div>
+  </header>
+  <main id="main"></main>
+  <div id="cartbar" hidden><button data-act="cart"><span id="cbCount"></span><span id="cbTotal"></span></button></div>
+  <nav>
+    <button data-tab="vente" class="on">Vente</button>
+    <button data-tab="histo">Historique</button>
+    <button data-tab="stock">Stock</button>
+    <button data-tab="prod">Produits</button>
+    <button data-tab="plus">Plus</button>
+  </nav>
+</div>
+<div id="sheet"></div>
+<div id="toast" hidden></div>
+<div id="printArea" class="tk" aria-hidden="true"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- Utilitaires ---------- */
+const $ = s => document.querySelector(s);
+// Ariary (MGA) : montants entiers, sans centimes
+const nf = new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0});
+const money = c => nf.format(c) + '\u00A0Ar';
+const toCents = s => {
+  const v = parseFloat(String(s).trim().replace(/\s/g,'').replace(',','.'));
+  return isFinite(v) && v >= 0 ? Math.round(v) : null;
+};
+const inputEur = c => c ? String(c) : '';
+const OPERATORS = ['MVola','Orange Money','Airtel Money'];
+const modeName = v => v.mode === 'carte' ? 'Carte' : (v.mode === 'mobile' ? 'Mobile Money' : 'Espèces');
+const modeLabel = v => modeName(v) + (v.mode === 'mobile' && v.operateur ? ' (' + v.operateur + ')' : '');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(4,'0');
+const fmtDate = iso => new Date(iso).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const fmtHour = iso => new Date(iso).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+const dayKey = iso => { const d=new Date(iso); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); };
+const isToday = iso => dayKey(iso) === dayKey(new Date().toISOString());
+const dayLabel = iso => new Date(iso).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+
+/* ---------- Stockage (Claude si disponible, sinon le téléphone) ---------- */
+const KEY = 'caisse-data-mga';
+const store = {
+  async get(){
+    try{
+      if(window.storage){
+        const r = await window.storage.get(KEY,false);
+        return r ? JSON.parse(r.value) : null;
+      }
+    }catch(e){ if(window.storage) return null; }
+    try{ const v = localStorage.getItem(KEY); return v ? JSON.parse(v) : null; }catch(e){ return null; }
+  },
+  async set(d){
+    const s = JSON.stringify(d);
+    try{ if(window.storage){ await window.storage.set(KEY,s,false); return; } }catch(e){}
+    try{ localStorage.setItem(KEY,s); }catch(e){}
+  }
+};
+
+let db = {produits:[], ventes:[], seq:1, shop:{nom:'LAITERIE MAMINAINA'}};
+const save = () => store.set(db);
+
+/* ---------- État ---------- */
+let view = 'vente';
+let cart = {};          // id produit -> quantité
+let freeLines = [];   // montants libres : {id:'L1', nom, prix, qty}
+let freeSeq = 1;
+let remise = 0;         // centimes
+let payMode = 'especes';
+let payOp = null;
+let busy = false;
+let query = '';
+let editingLogo = null;
+let impArmed = false;
+let pendingImport = null;
+let ticketV = null;
+let ticketFresh = false;
+let cancelArmed = false;
+let delArmed = false;
+let editingId = null;
+let curClient = null, ptsUsed = 0, clientCtx = null, clDelArmed = false;
+let plusPage = 'menu', dashPeriod = 'today', editingClient = null;
+
+/* ---------- Clavier chiffré ---------- */
+function keypadMarkup(target){
+  const keys = ['1','2','3','4','5','6','7','8','9','000','0','back'];
+  return '<div class="keypad" data-target="' + target + '">' + keys.map(k =>
+    k === 'back'
+      ? '<button data-key="back" aria-label="Effacer le dernier chiffre">⌫</button>'
+      : '<button data-key="' + k + '">' + k + '</button>').join('') + '</div>';
+}
+function pressKey(inputId, k){
+  const i = $('#' + inputId); if(!i) return;
+  let raw = (i.value || '').replace(/\D/g, '');
+  if(k === 'back') raw = raw.slice(0, -1);
+  else raw = (raw + k).replace(/^0+(?=\d)/, '');
+  raw = raw.slice(0, 9);
+  i.value = raw ? nf.format(Number(raw)) : '';
+  i.dispatchEvent(new Event('input', {bubbles:true}));
+}
+
+/* Montant libre */
+function openFree(){
+  openSheet(`
+    <div class="grab"></div>
+    <h2>Montant libre</h2>
+    <label for="fa">Montant (Ar)</label>
+    <input id="fa" class="amount" readonly inputmode="none" placeholder="0" aria-label="Montant">
+    <input id="fl" type="text" autocomplete="off" placeholder="Libellé (facultatif)" style="margin-top:8px">
+    ${keypadMarkup('fa')}
+    <div class="actions">
+      <button class="btn" id="fmore" data-act="addfreemore" disabled>+ Autre montant</button>
+      <button class="btn primary" id="fadd" data-act="addfree" disabled>Ajouter au panier</button>
+    </div>`);
+}
+function refreshFree(){
+  const a = toCents($('#fa').value);
+  const ok = a != null && a > 0;
+  $('#fmore').disabled = !ok; $('#fadd').disabled = !ok;
+}
+function addFree(keepOpen){
+  const a = toCents($('#fa').value);
+  if(a == null || a <= 0) return;
+  freeLines.push({id:'L' + (freeSeq++), nom: ($('#fl').value || '').trim() || 'Montant libre', prix:a, qty:1});
+  renderAll();
+  if(keepOpen){ $('#fa').value = ''; $('#fl').value = ''; refreshFree(); toast('Ajouté au panier'); }
+  else closeSheet();
+}
+
+/* ---------- Codes produit ---------- */
+const codeTaken = (c, exceptId) => db.produits.some(p => p.actif && p.id !== exceptId && (p.code || '').toLowerCase() === c.toLowerCase());
+function nextCode(){
+  let n = db.seq, c;
+  do { c = 'P' + String(n++).padStart(3,'0'); } while(codeTaken(c, null));
+  return c;
+}
+
+const wideMQ = window.matchMedia('(min-width: 740px)');
+const isWide = () => wideMQ.matches;
+
+/* ---------- Panier ---------- */
+const prod = id => db.produits.find(p => p.id === Number(id));
+const cartLines = () => Object.keys(cart).map(id => ({p:prod(id), qty:cart[id]})).filter(l => l.p)
+  .concat(freeLines.map(f => ({p:{id:f.id, nom:f.nom, prix:f.prix, stock:null, code:''}, qty:f.qty})));
+const isFreeId = id => String(id).charAt(0) === 'L';
+const subtotal = () => cartLines().reduce((s,l) => s + l.p.prix*l.qty, 0);
+const total = () => Math.max(0, subtotal() - remise - ptsValue());
+
+function addToCart(id){
+  if(isFreeId(id)){ const f = freeLines.find(x => x.id === id); if(f){ f.qty++; renderAll(); } return; }
+  const p = prod(id); if(!p) return;
+  const q = cart[id] || 0;
+  if(p.stock != null && q >= p.stock){ toast('Stock épuisé pour ' + p.nom); return; }
+  cart[id] = q + 1;
+  renderAll();
+}
+function decFromCart(id){
+  if(isFreeId(id)){
+    const f = freeLines.find(x => x.id === id);
+    if(f){ f.qty--; if(f.qty <= 0) freeLines = freeLines.filter(x => x !== f); }
+  } else {
+    if(!cart[id]) return;
+    cart[id]--; if(cart[id] <= 0) delete cart[id];
+  }
+  if(!Object.keys(cart).length && !freeLines.length){ remise = 0; ptsUsed = 0; }
+  renderAll();
+}
+
+/* ---------- Ventes ---------- */
+async function sha(t){
+  try{
+    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
+    return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join('');
+  }catch(e){ return ''; }
+}
+
+async function recordSale({lignes, remise, total, mode, recu, avoirDe, operateur, ref, clientId, clientNom, ptsG, ptsU}){
+  const last = db.ventes[db.ventes.length-1];
+  const numero = (last ? last.numero : 0) + 1;
+  const date = new Date().toISOString();
+  const hashPrec = last ? last.hash : '';
+  const hash = await sha([hashPrec, numero, date, total, mode].join('|'));
+  const v = {numero, date, lignes, remise, total, mode, operateur: operateur || null, ref: ref || null, recu: recu ?? null, avoirDe: avoirDe ?? null, clientId: clientId ?? null, clientNom: clientNom || null, ptsG: ptsG || 0, ptsU: ptsU || 0, hashPrec, hash};
+  db.ventes.push(v);
+  lignes.forEach(l => {
+    const p = db.produits.find(x => x.id === l.pid);
+    if(p && p.stock != null) p.stock -= l.qty;   // une quantité négative (avoir) remet en stock
+  });
+  await save();
+  return v;
+}
+
+async function finalize(mode, recu, extra){
+  if(busy) return; busy = true;
+  try{
+    clampPts();
+    const lignes = cartLines().map(l => ({pid: typeof l.p.id === 'number' ? l.p.id : null, nom:l.p.nom, prix:l.p.prix, qty:l.qty, cout: (typeof l.p.id === 'number' && l.p.cout != null) ? l.p.cout : null}));
+    const cl = client(), pu = ptsUsed, pg = cl ? Math.floor(total() / fid().par) : 0;
+    const v = await recordSale({lignes, remise: remise + ptsValue(), total: total(), mode, recu, operateur: extra && extra.operateur, ref: extra && extra.ref, clientId: cl ? cl.id : null, clientNom: cl ? cl.nom : null, ptsG: pg, ptsU: pu});
+    if(cl){ cl.points = Math.max(0, cl.points - pu + pg); cl.achats = (cl.achats || 0) + v.total; cl.visites = (cl.visites || 0) + 1; await save(); if(pg) toast('+' + pg + ' point' + (pg > 1 ? 's' : '') + ' pour ' + cl.nom); }
+    cart = {}; freeLines = []; remise = 0; curClient = null; ptsUsed = 0;
+    renderAll();
+    showTicket(v, true);
+    autoPrint(v);
+  } finally { busy = false; }
+}
+
+async function cancelSale(v){
+  if(busy) return; busy = true;
+  try{
+    const lignes = v.lignes.map(l => ({...l, qty:-l.qty}));
+    const a = await recordSale({lignes, remise:-v.remise, total:-v.total, mode:v.mode, recu:null, avoirDe:v.numero, operateur:v.operateur, ref:v.ref});
+    const cl0 = v.clientId != null ? A('clients').find(c => c.id === v.clientId) : null;
+    if(cl0){ cl0.points = Math.max(0, cl0.points - (v.ptsG || 0) + (v.ptsU || 0)); cl0.achats = (cl0.achats || 0) - v.total; cl0.visites = Math.max(0, (cl0.visites || 0) - 1); await save(); }
+    renderAll();
+    toast('Vente annulée (avoir n° ' + pad(a.numero) + ')');
+    showTicket(v, false);
+  } finally { busy = false; }
+}
+
+function ticketText(v){
+  const L = [];
+  if(db.shop && db.shop.nom) L.push(db.shop.nom);
+  L.push((v.avoirDe != null ? 'AVOIR n° ' : 'Ticket n° ') + pad(v.numero));
+  L.push(fmtDate(v.date));
+  L.push('');
+  v.lignes.forEach(l => L.push(l.qty + ' x ' + l.nom + '  ' + money(l.prix*l.qty)));
+  if(v.remise) L.push('Remise  ' + money(-v.remise));
+  L.push('');
+  L.push('TOTAL  ' + money(v.total));
+  L.push('Paiement : ' + modeLabel(v));
+  if(v.ref) L.push('Réf. : ' + v.ref);
+  return L.join('\n');
+}
+
+/* ---------- Impression ---------- */
+function ticketMarkup(v){
+  const sh = db.shop || {};
+  const avoir = v.avoirDe != null;
+  const lines = v.lignes.map(l => `
+    <div class="pl">${esc(l.nom)}</div>
+    <div class="pr"><span>${l.qty} x ${money(l.prix)}</span><span>${money(l.prix*l.qty)}</span></div>`).join('');
+  const cash = (v.mode === 'especes' && v.recu != null)
+    ? `<div class="pr"><span>Reçu</span><span>${money(v.recu)}</span></div>
+       <div class="pr"><span>Rendu</span><span>${money(v.recu - v.total)}</span></div>` : '';
+  return `
+    ${sh.logo ? `<img class="plogo" src="${sh.logo}" alt="">` : ''}
+    ${sh.nom ? `<div class="pc pb pbig">${esc(sh.nom)}</div>` : ''}
+    ${sh.info ? `<div class="pc">${esc(sh.info).replace(/\n/g,'<br>')}</div>` : ''}
+    <div class="ps"></div>
+    <div class="pc pb">${avoir ? 'AVOIR' : 'TICKET'} n° ${pad(v.numero)}</div>
+    ${avoir ? `<div class="pc">Annule la vente n° ${pad(v.avoirDe)}</div>` : ''}
+    <div class="pc">${fmtDate(v.date)}</div>
+    <div class="ps"></div>
+    ${lines}
+    <div class="ps"></div>
+    ${v.remise ? `<div class="pr"><span>Remise</span><span>${money(-v.remise)}</span></div>` : ''}
+    <div class="pr pb pbig"><span>TOTAL</span><span>${money(v.total)}</span></div>
+    <div class="pr"><span>Paiement</span><span>${esc(modeLabel(v))}</span></div>
+    ${v.ref ? `<div class="pr"><span>Réf.</span><span>${esc(v.ref)}</span></div>` : ''}
+    ${cash}
+    ${sh.pied ? `<div class="ps"></div><div class="pc">${esc(sh.pied).replace(/\n/g,'<br>')}</div>` : ''}`;
+}
+
+async function printTicketOld(v){
+  if(!v) return;
+  const pm = printerCfg().mode;
+  if(pm !== 'system'){
+    try{
+      if(!printerLink || printerLink.mode !== pm) await connectPrinter(pm);
+      await printerLink.send(escposBytes(v, printerCfg().width === 58 ? 32 : 48));
+    }catch(e){
+      if(!(e && e.name === 'NotFoundError')) toast('Impression directe impossible : ' + (e && e.message ? e.message : 'erreur'));
+    }
+    return;
+  }
+  $('#printArea').className = 'tk';
+  $('#printArea').innerHTML = ticketMarkup(v);
+  await Promise.all([...document.querySelectorAll('#printArea img')].map(i => i.decode ? i.decode().catch(() => {}) : null));
+  window.print();
+}
+
+function openPreview(v){
+  if(!v) return;
+  openSheet(`
+    <div class="grab"></div>
+    <h2>Aperçu du ticket</h2>
+    <div class="paper"><div class="tk">${ticketMarkup(v)}</div></div>
+    <div class="actions">
+      <button class="btn" data-act="backticket">Retour</button>
+      <button class="btn primary" data-act="print">Imprimer</button>
+    </div>`);
+}
+
+function resizeLogo(file, max){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const r = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.round(img.width*r), h = Math.round(img.height*r);
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const g = c.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0,0,w,h);
+      g.drawImage(img, 0, 0, w, h);
+      // noir et blanc contrasté : meilleur rendu sur imprimante de tickets
+      const d = g.getImageData(0,0,w,h);
+      for(let i = 0; i < d.data.length; i += 4){
+        const gray = 0.3*d.data[i] + 0.59*d.data[i+1] + 0.11*d.data[i+2];
+        const v = gray > 170 ? 255 : (gray < 90 ? 0 : (gray - 90) * 255 / 80);
+        d.data[i] = d.data[i+1] = d.data[i+2] = v;
+      }
+      g.putImageData(d, 0, 0);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/png'));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image')); };
+    img.src = url;
+  });
+}
+function refreshLogo(){
+  const prev = $('#logoPrev'); if(!prev) return;
+  prev.innerHTML = editingLogo ? `<img src="${editingLogo}" alt="Logo">` : 'Aucun logo';
+  const rm = $('#rmLogo'); if(rm) rm.hidden = !editingLogo;
+}
+
+function openSettings(){
+  const sh = db.shop || {};
+  openSheet(`
+    <div class="grab"></div>
+    <h2>Réglages du ticket</h2>
+    <div class="logoRow">
+      <div id="logoPrev" class="logoPrev"></div>
+      <div class="stack">
+        <button class="btn" data-act="picklogo">Choisir le logo</button>
+        <button class="btn danger" id="rmLogo" data-act="rmlogo" hidden>Retirer le logo</button>
+      </div>
+    </div>
+    <input id="sl" type="file" accept="image/*" hidden>
+    <label for="sn">Nom du commerce</label>
+    <input id="sn" type="text" autocomplete="off" value="${esc(sh.nom || '')}">
+    <label for="si">Adresse, téléphone, NIF/STAT</label>
+    <input id="si" type="text" autocomplete="off" value="${esc(sh.info || '')}">
+    <label for="sp">Message en bas du ticket</label>
+    <input id="sp" type="text" autocomplete="off" placeholder="Merci de votre visite" value="${esc(sh.pied || '')}">
+    <label for="ss">Alerte « stock bas » quand il reste ce nombre ou moins</label>
+    <input id="ss" inputmode="numeric" autocomplete="off" value="${lowLimit()}">
+    <div class="stack" style="margin-top:16px">
+      <button class="btn primary block" data-act="savesettings">Enregistrer</button>
+    </div>`);
+  editingLogo = sh.logo || null;
+  refreshLogo();
+}
+async function saveSettings(){
+  const sv = parseInt($('#ss').value, 10);
+  db.seuil = isFinite(sv) && sv >= 0 ? sv : 5;
+  db.shop = {nom: $('#sn').value.trim(), info: $('#si').value.trim(), pied: $('#sp').value.trim(), logo: editingLogo || null};
+  await save(); closeSheet(); renderAll(); toast('Réglages enregistrés');
+}
+
+/* ---------- Feuilles (fenêtres du bas) ---------- */
+function openSheet(html){
+  const s = $('#sheet');
+  const wasOpen = s.classList.contains('open');
+  s.innerHTML = '<div class="scrim" data-close></div><div class="panel" role="dialog" aria-modal="true">' + html + '</div>';
+  if(!wasOpen) s.querySelector('.panel').classList.add('enter');
+  s.classList.add('open');
+}
+function closeSheet(){
+  const s = $('#sheet'); s.classList.remove('open'); s.innerHTML = '';
+  cancelArmed = false; delArmed = false; impArmed = false;
+}
+let toastTimer;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 2400);
+}
+
+/* Panier */
+function cartReceipt(lines){
+  const rows = lines.map(l => `
+    <div class="rl">
+      <div class="rn">${esc(l.p.nom)}<small>${money(l.p.prix)}</small></div>
+      <div class="stepper">
+        <button data-dec="${l.p.id}" aria-label="Retirer un ${esc(l.p.nom)}">−</button>
+        <span>${l.qty}</span>
+        <button data-inc="${l.p.id}" aria-label="Ajouter un ${esc(l.p.nom)}">+</button>
+      </div>
+      <div class="rt">${money(l.p.prix*l.qty)}</div>
+    </div>`).join('');
+  return `
+    <div class="receipt">
+      ${rows}
+      <div class="sep"></div>
+      <div class="row"><span>Sous-total</span><span>${money(subtotal())}</span></div>
+      <div class="row"><span>Client</span><button class="btn sm" data-act="pickclient">${client() ? esc(client().nom) : 'Choisir'}</button></div>
+      ${client() && client().points > 0 ? `<div class="row"><span>Points (${client().points})</span><button class="btn sm" data-act="usepts">${ptsUsed ? 'Annuler (−' + money(ptsValue()) + ')' : 'Utiliser'}</button></div>` : ''}
+      <div class="row"><label for="rem">Remise (Ar)</label><input id="rem" inputmode="decimal" autocomplete="off" placeholder="0" value="${inputEur(remise)}"></div>
+      <div class="sep"></div>
+      <div class="row big"><span>Total</span><span>${money(total())}</span></div>
+      <div class="holdrow"><button class="btn sm block" data-act="hold">Mettre en attente</button></div>
+    </div>`;
+}
+
+function openCart(){
+  const lines = cartLines();
+  if(!lines.length || isWide()){ closeSheet(); return; }
+  openSheet(`
+    <div class="grab"></div>
+    <h2>Panier</h2>
+    ${cartReceipt(lines)}
+    <div class="actions">
+      <button class="btn danger" data-act="clear">Vider</button>
+      <button class="btn primary" data-act="pay">Encaisser ${money(total())}</button>
+    </div>`);
+}
+
+function renderCartPane(){
+  const pane = $('#cartPane'); if(!pane) return;
+  const lines = cartLines();
+  if(!lines.length){
+    pane.innerHTML = `<h2>Panier</h2>
+      <div class="cp-body"><div class="empty"><p>Touche un produit pour l'ajouter au panier.</p></div></div>
+      <button class="btn primary block" disabled>Encaisser</button>`;
+    return;
+  }
+  pane.innerHTML = `<h2>Panier</h2>
+    <div class="cp-body">${cartReceipt(lines)}</div>
+    <div class="actions">
+      <button class="btn danger" data-act="clear">Vider</button>
+      <button class="btn primary" data-act="pay">Encaisser ${money(total())}</button>
+    </div>`;
+}
+
+/* Paiement */
+function openPay(){
+  payMode = 'especes'; payOp = null;
+  const t = total();
+  openSheet(`
+    <div class="grab"></div>
+    <h2>Encaisser</h2>
+    <div class="due">${money(t)}</div>
+    <div class="seg">
+      <button data-mode="especes" class="on">Espèces</button>
+      <button data-mode="mobile">Mobile Money</button>
+      <button data-mode="carte">Carte</button>
+    </div>
+    <div id="mmbox" hidden>
+      <label>Opérateur</label>
+      <div class="chips">${OPERATORS.map(o => `<button data-op="${o}">${o}</button>`).join('')}</div>
+      <label for="mref">Référence de la transaction (facultatif)</label>
+      <input id="mref" type="text" autocomplete="off">
+      <p class="note">Vérifie que l'argent est bien reçu sur ton téléphone avant de valider.</p>
+    </div>
+    <div id="cashbox">
+      <label for="recu">Montant reçu (Ar)</label>
+      <input id="recu" class="amount" readonly inputmode="none" placeholder="0" aria-label="Montant reçu">
+      <div class="chips"><button data-chip="exact">Exact</button></div>
+      ${keypadMarkup('recu')}
+      <div id="rendu" class="rendu"></div>
+    </div>
+    <p id="cardnote" class="note" hidden>Fais d'abord payer le client sur ton terminal de carte, puis valide ici.</p>
+    <div class="actions">
+      <button class="btn" data-act="cart">Retour</button>
+      <button class="btn primary" id="validate" data-act="validate">Valider</button>
+    </div>`);
+  refreshPay();
+}
+function refreshPay(){
+  const t = total();
+  document.querySelectorAll('.seg button').forEach(b => b.classList.toggle('on', b.dataset.mode === payMode));
+  $('#cashbox').hidden = payMode !== 'especes';
+  $('#cardnote').hidden = payMode !== 'carte';
+  $('#mmbox').hidden = payMode !== 'mobile';
+  document.querySelectorAll('[data-op]').forEach(b => b.classList.toggle('on', b.dataset.op === payOp));
+  const v = $('#validate');
+  if(payMode === 'carte'){ v.disabled = false; return; }
+  if(payMode === 'mobile'){ v.disabled = !payOp; return; }
+  const recu = toCents($('#recu').value);
+  const r = $('#rendu');
+  if(recu == null){ r.textContent = ''; r.className = 'rendu'; v.disabled = true; return; }
+  const diff = recu - t;
+  if(diff >= 0){ r.textContent = 'Rendu : ' + money(diff); r.className = 'rendu ok'; v.disabled = false; }
+  else { r.textContent = 'Il manque ' + money(-diff); r.className = 'rendu ko'; v.disabled = true; }
+}
+
+/* Ticket */
+function showTicket(v, fresh){
+  ticketV = v; ticketFresh = fresh; cancelArmed = false;
+  const avoir = v.avoirDe != null;
+  const cancelledBy = db.ventes.find(x => x.avoirDe === v.numero);
+  const lines = v.lignes.map(l => `<div class="tl"><span>${l.qty} × ${esc(l.nom)}</span><span>${money(l.prix*l.qty)}</span></div>`).join('');
+  const rendu = (fresh && v.mode === 'especes' && v.recu != null)
+    ? `<div class="tl"><span>Reçu</span><span>${money(v.recu)}</span></div><div class="tl"><span>Rendu</span><span>${money(v.recu - v.total)}</span></div>` : '';
+  let status = '';
+  if(avoir) status = `<p class="status">Avoir de la vente n° ${pad(v.avoirDe)}</p>`;
+  else if(cancelledBy) status = `<p class="status">Annulée par l'avoir n° ${pad(cancelledBy.numero)}</p>`;
+  const canCancel = !fresh && !avoir && !cancelledBy;
+  openSheet(`
+    <div class="grab"></div>
+    <h2>${fresh ? 'Vente enregistrée' : (avoir ? 'Avoir' : 'Ticket') + ' n° ' + pad(v.numero)}</h2>
+    ${status}
+    <div class="receipt">
+      <div class="tl"><span>${pad(v.numero)}</span><span>${fmtDate(v.date)}</span></div>
+      <div class="sep"></div>
+      ${lines}
+      ${v.remise ? `<div class="tl"><span>Remise</span><span>${money(-v.remise)}</span></div>` : ''}
+      <div class="sep"></div>
+      <div class="row big"><span>Total</span><span>${money(v.total)}</span></div>
+      <div class="tl"><span>Paiement</span><span>${esc(modeLabel(v))}</span></div>
+      ${v.ref ? `<div class="tl"><span>Réf.</span><span>${esc(v.ref)}</span></div>` : ''}
+      ${rendu}
+    </div>
+    <div class="stack">
+      <div class="actions">
+        <button class="btn" data-act="preview">Aperçu</button>
+        <button class="btn primary" data-act="print">Imprimer</button>
+      </div>
+      ${canCancel ? '<button class="btn danger block" id="cancelBtn" data-act="cancelsale">Annuler cette vente</button>' : ''}
+      <div class="actions">
+        <button class="btn" data-act="share">Partager</button>
+        <button class="btn" data-close>${fresh ? 'Nouvelle vente' : 'Fermer'}</button>
+      </div>
+    </div>`);
+}
+
+/* Produit */
+function openProduct(id){
+  editingId = id || null; delArmed = false;
+  const p = id ? prod(id) : null;
+  const code = p ? (p.code || '') : nextCode();
+  openSheet(`
+    <div class="grab"></div>
+    <h2>${p ? 'Modifier le produit' : 'Nouveau produit'}</h2>
+    <label for="pc">Code produit</label>
+    <input id="pc" type="text" autocomplete="off" autocapitalize="characters" value="${esc(code)}">
+    <label for="pn">Nom</label>
+    <input id="pn" type="text" autocomplete="off" value="${p ? esc(p.nom) : ''}">
+    <label for="pp">Prix (Ar)</label>
+    <input id="pp" inputmode="decimal" autocomplete="off" value="${p ? inputEur(p.prix) : ''}">
+    <label for="pk">Prix d'achat (Ar, facultatif — sert au calcul du bénéfice)</label>
+    <input id="pk" inputmode="decimal" autocomplete="off" value="${p && p.cout != null ? p.cout : ''}">
+    <label for="ps">Stock (laisse vide pour ne pas le suivre)</label>
+    <input id="ps" inputmode="numeric" autocomplete="off" value="${p && p.stock != null ? p.stock : ''}">
+    <div class="stack" style="margin-top:16px">
+      <button class="btn primary block" data-act="saveprod">Enregistrer</button>
+      ${p ? '<button class="btn danger block" id="delBtn" data-act="delprod">Supprimer le produit</button>' : ''}
+    </div>`);
+}
+
+/* ---------- Rendu des écrans ---------- */
+function renderAll(){
+  clampPts();
+  const dayTotal = db.ventes.filter(v => isToday(v.date)).reduce((s,v) => s + v.total, 0);
+  $('#dayTotal').textContent = money(dayTotal);
+  $('#appTitle').textContent = (db.shop && db.shop.nom) || 'Caisse';
+
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === view));
+  const pb = document.querySelector('[data-tab="plus"]'); if(pb) pb.textContent = 'Plus' + (A('attente').length ? ' (' + A('attente').length + ')' : '');
+
+  const n = Object.values(cart).reduce((s,q) => s + q, 0) + freeLines.reduce((s,f) => s + f.qty, 0);
+  $('#cartbar').hidden = !(view === 'vente' && n > 0);
+  $('#cbCount').textContent = n + (n > 1 ? ' articles' : ' article');
+  $('#cbTotal').textContent = money(total());
+
+  if(view === 'vente') renderVente();
+  else if(view === 'histo') renderHisto();
+  else if(view === 'stock') renderStock();
+  else if(view === 'plus') renderPlus();
+  else renderProd();
+
+  if($('#sheet').classList.contains('open') && $('.panel') && $('.panel h2') && $('.panel h2').textContent === 'Panier') openCart();
+}
+
+function filteredProducts(){
+  const q = query.trim().toLowerCase();
+  return db.produits.filter(p => p.actif && (!q || p.nom.toLowerCase().includes(q) || (p.code || '').toLowerCase().includes(q)));
+}
+
+function freeTile(){
+  if(query.trim()) return '';
+  return '<button class="tile free" data-act="free"><span class="tc">LIBRE</span><span class="tn">Montant libre</span><span class="tp">Saisir un montant</span></button>';
+}
+
+function renderGrid(){
+  const ps = filteredProducts();
+  if(!ps.length){ $('#grid').innerHTML = '<div class="empty"><p>Aucun produit ne correspond.</p></div>'; return; }
+  $('#grid').innerHTML = freeTile() + ps.map(p => {
+    const q = cart[p.id] || 0;
+    const out = p.stock != null && p.stock <= 0;
+    return `<button class="tile${out ? ' out' : ''}" data-add="${p.id}" ${out ? 'disabled' : ''}>
+      ${q ? `<span class="badge">${q}</span>` : ''}
+      <span class="tc">${esc(p.code || '—')}</span>
+      <span class="tn">${esc(p.nom)}</span>
+      <span class="tp">${money(p.prix)}${p.stock != null ? `<i>${out ? 'Rupture' : 'Stock : ' + p.stock}</i>` : ''}</span>
+    </button>`;
+  }).join('');
+}
+
+function resetMain(){
+  const m = $('#main'); m.dataset.sig = ''; m.classList.remove('mainfixed');
+}
+
+function renderVente(){
+  const main = $('#main');
+  if(!db.produits.some(p => p.actif)){
+    resetMain();
+    main.innerHTML = `<div class="empty"><p>Aucun produit pour l'instant.</p>
+      <button class="btn primary" data-act="addprod">Ajouter un produit</button>
+      <button class="btn" data-act="seed">Charger des exemples</button></div>`;
+    return;
+  }
+  const wide = isWide();
+  const sig = wide ? 'wide' : 'narrow';
+  if(main.dataset.sig !== sig){
+    main.dataset.sig = sig;
+    main.classList.toggle('mainfixed', wide);
+    const search = `<input id="q" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" placeholder="Chercher un nom ou saisir un code" value="${esc(query)}">`;
+    main.innerHTML = wide
+      ? `<div class="split"><div class="left">${search}<div id="grid" class="grid"></div></div><aside id="cartPane" class="cartpane"></aside></div>`
+      : `${search}<div id="grid" class="grid"></div>`;
+  }
+  const qi = $('#q'); if(qi && qi.value !== query) qi.value = query;
+  renderGrid();
+  renderCartPane();
+}
+
+function renderHisto(){
+  resetMain();
+  const today = db.ventes.filter(v => isToday(v.date));
+  const sum = f => today.filter(f).reduce((s,v) => s + v.total, 0);
+  const nb = today.filter(v => v.avoirDe == null).length;
+  let html = `<div class="stats four">
+    <div class="stat"><span>Ventes</span><b>${nb}</b></div>
+    <div class="stat"><span>Espèces</span><b>${money(sum(v => v.mode === 'especes'))}</b></div>
+    <div class="stat"><span>Mobile Money</span><b>${money(sum(v => v.mode === 'mobile'))}</b></div>
+    <div class="stat"><span>Carte</span><b>${money(sum(v => v.mode === 'carte'))}</b></div>
+  </div>`;
+  if(db.ventes.length) html += '<button class="btn block addrow" data-act="histoprint">Imprimer l\'historique</button>';
+  if(!db.ventes.length){
+    html += '<div class="empty"><p>Aucune vente enregistrée.</p></div>';
+    $('#main').innerHTML = html; return;
+  }
+  const cancelled = new Set(db.ventes.filter(v => v.avoirDe != null).map(v => v.avoirDe));
+  let lastDay = '', open = false;
+  [...db.ventes].reverse().slice(0,300).forEach(v => {
+    const k = dayKey(v.date);
+    if(k !== lastDay){
+      if(open) html += '</div>';
+      html += `<div class="dayhead">${esc(dayLabel(v.date))}</div><div class="list">`;
+      open = true; lastDay = k;
+    }
+    const tag = v.avoirDe != null ? '<span class="tag">Avoir</span>' : (cancelled.has(v.numero) ? '<span class="tag">Annulée</span>' : '');
+    html += `<button class="item" data-ticket="${v.numero}">
+      <span>n° ${pad(v.numero)}${tag}<small>${fmtHour(v.date)} · ${esc(modeLabel(v))}</small></span>
+      <span class="amt${v.total < 0 ? ' neg' : ''}">${money(v.total)}</span></button>`;
+  });
+  if(open) html += '</div>';
+  $('#main').innerHTML = html;
+}
+
+function renderProd(){
+  resetMain();
+  const ps = db.produits.filter(p => p.actif);
+  let html = '<button class="btn primary block addrow" data-act="addprod">Ajouter un produit</button>'
+    + '<button class="btn block addrow" data-act="settings">Réglages du ticket</button>'
+    + '<button class="btn block addrow" data-act="printer">Imprimante</button>'
+    + '<button class="btn block addrow" data-act="backup">Sauvegarde et transfert</button>';
+  if(!ps.length){
+    html += '<div class="empty"><p>Aucun produit.</p><button class="btn" data-act="seed">Charger des exemples</button></div>';
+  } else {
+    html += '<div class="list">' + ps.map(p => `
+      <button class="item" data-edit="${p.id}">
+        <span class="lft"><span class="cd">${esc(p.code || '—')}</span><span>${esc(p.nom)}<small>${p.stock != null ? 'Stock : ' + p.stock : 'Stock non suivi'}</small></span></span>
+        <span class="amt">${money(p.prix)}</span></button>`).join('') + '</div>';
+  }
+  $('#main').innerHTML = html;
+}
+
+/* ---------- Stock ---------- */
+const lowLimit = () => (typeof db.seuil === 'number' ? db.seuil : 5);
+function stockState(p){
+  if(p.stock == null) return 'none';
+  if(p.stock <= 0) return 'out';
+  if(p.stock <= lowLimit()) return 'low';
+  return 'ok';
+}
+const stateText = {out:'Rupture', low:'Stock bas', ok:'En stock', none:'Stock non suivi'};
+let editingStockId = null;
+
+function sortedStock(){
+  const order = {out:0, low:1, ok:2, none:3};
+  return db.produits.filter(p => p.actif).sort((a,b) =>
+    order[stockState(a)] - order[stockState(b)] || (a.stock ?? 0) - (b.stock ?? 0) || a.nom.localeCompare(b.nom,'fr'));
+}
+
+function renderStock(){
+  resetMain();
+  const ps = sortedStock();
+  if(!ps.length){ $('#main').innerHTML = '<div class="empty"><p>Aucun produit.</p></div>'; return; }
+  const n = st => ps.filter(p => stockState(p) === st).length;
+  let html = `<div class="stats">
+    <div class="stat"><span>En rupture</span><b>${n('out')}</b></div>
+    <div class="stat"><span>Stock bas</span><b>${n('low')}</b></div>
+    <div class="stat"><span>Suivis</span><b>${ps.length - n('none')} / ${ps.length}</b></div>
+  </div>
+  <button class="btn block addrow" data-act="stockprint">Imprimer l'état du stock</button>
+  <div class="list">`;
+  html += ps.map(p => {
+    const st = stockState(p);
+    return `<button class="item" data-stock="${p.id}">
+      <span class="lft"><span class="cd">${esc(p.code || '—')}</span><span>${esc(p.nom)}<small>${stateText[st]}</small></span></span>
+      <span class="amt${st === 'out' || st === 'low' ? ' neg' : ''}">${p.stock != null ? p.stock : '—'}</span></button>`;
+  }).join('') + '</div>';
+  $('#main').innerHTML = html;
+}
+
+function openStock(id){
+  const p = prod(id); if(!p) return;
+  editingStockId = id;
+  openSheet(`
+    <div class="grab"></div>
+    <h2>${esc(p.nom)}</h2>
+    <div class="due">${p.stock != null ? p.stock : 'Non suivi'}</div>
+    <label for="sv">Nouveau stock</label>
+    <input id="sv" inputmode="numeric" autocomplete="off" placeholder="Non suivi" value="${p.stock != null ? p.stock : ''}">
+    <div class="chips">
+      ${[5,10,20,50].map(n => `<button data-sadd="${n}">+${n}</button>`).join('')}
+    </div>
+    <div class="stack">
+      <button class="btn primary block" data-act="savestock">Enregistrer</button>
+      ${p.stock != null ? '<button class="btn danger block" data-act="untrack">Ne plus suivre le stock</button>' : ''}
+    </div>`);
+}
+async function saveStock(){
+  const p = prod(editingStockId); if(!p) return;
+  const raw = $('#sv').value.trim();
+  const v = parseInt(raw, 10);
+  if(raw === '' || !isFinite(v) || v < 0){ toast('Indique un nombre (0 ou plus)'); return; }
+  p.stock = v;
+  await save(); closeSheet(); renderAll(); toast('Stock mis à jour');
+}
+async function untrackStock(){
+  const p = prod(editingStockId); if(!p) return;
+  p.stock = null;
+  await save(); closeSheet(); renderAll();
+}
+
+function stockReport(){
+  const rows = sortedStock().map(p => {
+    const st = stockState(p);
+    return `<tr><td>${esc(p.code || '')}</td><td>${esc(p.nom)}</td>
+      <td class="r${st === 'out' || st === 'low' ? ' b' : ''}">${p.stock != null ? p.stock : '—'}</td><td>${stateText[st]}</td></tr>`;
+  }).join('');
+  return `
+    <h1>${esc((db.shop && db.shop.nom) || 'Caisse')}</h1>
+    <div class="b">État du stock</div>
+    <div class="sub">Imprimé le ${fmtDate(new Date().toISOString())}</div>
+    <table><thead><tr><th>Code</th><th>Produit</th><th class="r">Stock</th><th>État</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function openStockPrint(){
+  openSheet(`
+    <div class="grab"></div>
+    <h2>État du stock</h2>
+    <div class="paper wide"><div class="rp">${stockReport()}</div></div>
+    <div class="actions">
+      <button class="btn" data-close>Fermer</button>
+      <button class="btn primary" data-act="printstock">Imprimer</button>
+    </div>`);
+}
+
+/* ---------- Imprimante : réglages, Bluetooth, USB ---------- */
+const printerCfg = () => Object.assign({mode:'system', width:80, ip:'10.10.100.254', port:9100, router:''}, db.printer || {});
+const applyPaper = () => document.documentElement.style.setProperty('--tkw', printerCfg().width === 58 ? '48mm' : '72mm');
+let printerLink = null;   // {mode, name, send(bytes)}
+const BT_SERVICES = ['000018f0-0000-1000-8000-00805f9b34fb','49535343-fe7d-4ae5-8fa9-9fafd205e455','0000ffe0-0000-1000-8000-00805f9b34fb','e7810a71-73ae-499d-8c15-faa9aef0c3f2','0000ff00-0000-1000-8000-00805f9b34fb'];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function connectPrinter(mode){
+  if(mode === 'network'){
+    const c = printerCfg();
+    const host = String(c.ip || '').trim();
+    const port = Number(c.port || 9100);
+    if(!host) throw new Error('Adresse IP manquante');
+    if(!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Port réseau invalide');
+    const api = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.NetworkPrinter;
+    if(!api || typeof api.print !== 'function') throw new Error('Le module réseau natif doit être installé dans l’application iPad/Android. Ouvre le guide fourni.');
+    printerLink = {mode, name:'Xprinter ' + host + ':' + port + (c.router ? ' via ' + c.router : ''), async send(bytes){
+      await api.print({host, port, data:Array.from(bytes)});
+    }};
+  } else if(mode === 'bluetooth'){
+    if(!navigator.bluetooth) throw new Error('Bluetooth indisponible sur cet appareil');
+    const dev = await navigator.bluetooth.requestDevice({acceptAllDevices:true, optionalServices:BT_SERVICES});
+    const server = await dev.gatt.connect();
+    let ch = null;
+    for(const sv of await server.getPrimaryServices()){
+      const cs = await sv.getCharacteristics();
+      ch = cs.find(c => c.properties.write || c.properties.writeWithoutResponse);
+      if(ch) break;
+    }
+    if(!ch) throw new Error('Cette imprimante n\'est pas reconnue');
+    dev.addEventListener('gattserverdisconnected', () => { printerLink = null; });
+    printerLink = {mode, name: dev.name || 'Bluetooth', async send(bytes){
+      for(let i = 0; i < bytes.length; i += 100){
+        const chunk = bytes.slice(i, i + 100);
+        if(ch.properties.writeWithoutResponse) await ch.writeValueWithoutResponse(chunk);
+        else await ch.writeValue(chunk);
+        await sleep(25);
+      }
+    }};
+  } else if(mode === 'usb'){
+    if(!navigator.usb) throw new Error('USB indisponible sur cet appareil');
+    const dev = await navigator.usb.requestDevice({filters:[]});
+    await dev.open();
+    if(!dev.configuration) await dev.selectConfiguration(1);
+    let ifc = null, ep = null;
+    for(const i of dev.configuration.interfaces){
+      for(const a of i.alternates){
+        const e = a.endpoints.find(x => x.direction === 'out' && x.type === 'bulk');
+        if(e && (!ep || a.interfaceClass === 7)){ ifc = i; ep = e; }
+      }
+    }
+    if(!ep) throw new Error('Aucune sortie d\'impression trouvée');
+    await dev.claimInterface(ifc.interfaceNumber);
+    printerLink = {mode, name: dev.productName || 'USB', async send(bytes){ await dev.transferOut(ep.endpointNumber, bytes); }};
+  }
+}
+
+/* Texte accentué pour imprimantes de tickets (page de code 858) */
+const CP858 = {'é':0x82,'è':0x8A,'à':0x85,'ê':0x88,'â':0x83,'ô':0x93,'î':0x8C,'ï':0x8B,'ç':0x87,'û':0x96,'ù':0x97,'ë':0x89,'ü':0x81,'ä':0x84,'ö':0x94,'É':0x90,'È':0xD4,'À':0xB7,'Ç':0x80,'Ô':0xE2,'Ê':0xD2,'Î':0xD7,'Ù':0xEB,'°':0xF8};
+function encText(str){
+  const out = [];
+  const clean = String(str).replace(/[\u00A0\u202F]/g,' ').replace(/×/g,'x').replace(/[’‘]/g,"'").replace(/[·–—]/g,'-').replace(/[«»“”]/g,'"');
+  for(const ch of clean){
+    const c = ch.charCodeAt(0);
+    out.push(c < 128 ? c : (CP858[ch] != null ? CP858[ch] : 0x3F));
+  }
+  return out;
+}
+
+function escposBytes(v, cols, o){
+  const sh = db.shop || {};
+  const avoir = v.avoirDe != null;
+  const out = [];
+  const raw = (...b) => { b.forEach(x => out.push(x)); };
+  const m = n => money(n).replace(/[\u00A0\u202F]/g,' ');
+  const wrap = s => {
+    const w = [];
+    String(s).split('\n').forEach(part => { let t = part; while(t.length > cols){ w.push(t.slice(0, cols)); t = t.slice(cols); } w.push(t); });
+    return w;
+  };
+  const line = s => { encText(s).forEach(x => out.push(x)); out.push(0x0A); };
+  const center = s => wrap(s).forEach(l => line(' '.repeat(Math.max(0, Math.floor((cols - l.length) / 2))) + l));
+  const lr = (l, r) => {
+    const R = String(r); let L = String(l);
+    const room = cols - R.length - 1;
+    if(L.length > room) L = L.slice(0, Math.max(0, room));
+    line(L + ' '.repeat(Math.max(1, cols - L.length - R.length)) + R);
+  };
+  const sep = () => line('-'.repeat(cols));
+  const bold = on => raw(0x1B, 0x45, on ? 1 : 0);
+
+  raw(0x1B, 0x40);            // initialiser
+  raw(0x1B, 0x74, 19);        // page de code 858
+  bold(true); if(sh.nom) center(sh.nom); bold(false);
+  if(sh.info) center(sh.info);
+  sep();
+  bold(true); center((avoir ? 'AVOIR' : 'TICKET') + ' n° ' + pad(v.numero)); bold(false);
+  if(avoir) center('Annule la vente n° ' + pad(v.avoirDe));
+  center(fmtDate(v.date));
+  sep();
+  v.lignes.forEach(l => { wrap(l.nom).forEach(t => line(t)); lr(l.qty + ' x ' + m(l.prix), m(l.prix * l.qty)); });
+  sep();
+  if(v.remise) lr('Remise', m(-v.remise));
+  bold(true); lr('TOTAL', m(v.total)); bold(false);
+  wrap('Paiement : ' + modeLabel(v)).forEach(t => line(t));
+  if(v.ref) line('Réf. : ' + v.ref);
+  if(v.mode === 'especes' && v.recu != null){ lr('Reçu', m(v.recu)); lr('Rendu', m(v.recu - v.total)); }
+  if(sh.pied){ sep(); center(sh.pied); }
+  raw(0x0A, 0x0A, 0x0A, 0x0A);
+  if(!o || o.cut !== false) raw(0x1D, 0x56, 0x42, 0x00); // couper
+  if(o && o.drawer) raw(0x1B, 0x70, 0x00, 0x19, 0xFA); // tiroir-caisse
+  return new Uint8Array(out);
+}
+
+function testSale(){
+  return {numero:0, date:new Date().toISOString(), lignes:[{nom:'Article de test', prix:1000, qty:1}], remise:0, total:1000, mode:'especes', operateur:null, ref:null, recu:1000, avoirDe:null};
+}
+
+function openPrinterOld(){
+  const c = printerCfg();
+  const hasBT = !!navigator.bluetooth, hasUSB = !!navigator.usb;
+  const notes = {
+    network: 'Connexion réseau directe à une imprimante Ethernet/Wi-Fi ESC/POS. La tablette et l’imprimante doivent être sur le même réseau local.',
+    system: 'Utilise l\'impression de l\'appareil : AirPrint (imprimante Wi-Fi) sur iPhone et iPad, ou toute imprimante Wi-Fi ou USB installée sur Android ou ordinateur.',
+    bluetooth: 'Envoie le ticket directement à une imprimante de tickets Bluetooth (ESC/POS). Il faut la reconnecter à chaque ouverture de l\'app. Le logo n\'est pas imprimé dans ce mode.',
+    usb: 'Envoie le ticket directement à une imprimante de tickets USB (ESC/POS). Le logo n\'est pas imprimé dans ce mode.'
+  };
+  const linked = (printerLink && printerLink.mode === c.mode) ? 'Connectée : ' + esc(printerLink.name) : 'Non connectée';
+  openSheet(`
+    <div class="grab"></div>
+    <h2>Imprimante</h2>
+    <label>Méthode d'impression</label>
+    <div class="seg">
+      <button data-pm="system" class="${c.mode === 'system' ? 'on' : ''}">Système</button>
+      <button data-pm="network" class="${c.mode === 'network' ? 'on' : ''}">Réseau</button>
+      <button data-pm="bluetooth" class="${c.mode === 'bluetooth' ? 'on' : ''}" ${hasBT ? '' : 'disabled'}>Bluetooth</button>
+      <button data-pm="usb" class="${c.mode === 'usb' ? 'on' : ''}" ${hasUSB ? '' : 'disabled'}>USB</button>
+    </div>
+    <p class="note" style="margin:8px 0">${notes[c.mode]}</p>
+    <p class="status">Disponible sur cet appareil : Système${hasBT ? ', Bluetooth' : ''}${hasUSB ? ', USB' : ''}.${(hasBT && hasUSB) ? '' : ' Bluetooth et USB demandent Chrome sur Android ou ordinateur.'}</p>
+    ${c.mode === 'network' ? `<label for="printerIP">Adresse IP de l’imprimante</label><input id="printerIP" type="text" inputmode="decimal" autocomplete="off" value="${esc(c.ip || '10.10.100.254')}" placeholder="10.10.100.254"><label for="printerRouter">Routeur (passerelle) — facultatif</label><input id="printerRouter" type="text" inputmode="decimal" autocomplete="off" value="${esc(c.router || '')}" placeholder="192.168.1.1"><label for="printerPort">Port TCP</label><input id="printerPort" type="number" inputmode="numeric" min="1" max="65535" value="${Number(c.port || 9100)}"><button class="btn block" data-act="psave">Enregistrer l’adresse réseau</button>` : ''}
+    <label>Largeur du papier</label>
+    <div class="seg">
+      <button data-pw="58" class="${c.width === 58 ? 'on' : ''}">58 mm</button>
+      <button data-pw="80" class="${c.width === 80 ? 'on' : ''}">80 mm</button>
+    </div>
+    ${c.mode !== 'system' ? `<p class="status" style="margin-top:12px">${linked}</p><button class="btn block" data-act="pconnect">${c.mode === 'network' ? 'Tester la connexion réseau' : 'Connecter l’imprimante'}</button>` : ''}
+    <div class="actions" style="margin-top:14px">
+      <button class="btn" data-close>Fermer</button>
+      <button class="btn primary" data-act="ptest">Impression test</button>
+    </div>`);
+}
+
+/* ---------- Impression de l'historique ---------- */
+let histoPeriod = 'today', histoDetail = false;
+const PERIODS = [['today','Aujourd\'hui'],['7','7 jours'],['month','Ce mois'],['all','Tout']];
+
+function periodFrom(key){
+  const d = new Date(); d.setHours(0,0,0,0);
+  if(key === 'all') return new Date(0);
+  if(key === '7') d.setDate(d.getDate() - 6);
+  else if(key === 'month') d.setDate(1);
+  return d;
+}
+function periodText(key){
+  const fd = x => x.toLocaleDateString('fr-FR');
+  if(key === 'today') return 'Aujourd\'hui, ' + fd(new Date());
+  if(key === 'all') return 'Toutes les ventes';
+  return 'Du ' + fd(periodFrom(key)) + ' au ' + fd(new Date());
+}
+
+function historyReport(key, detail){
+  const from = periodFrom(key);
+  const list = db.ventes.filter(v => new Date(v.date) >= from);
+  const cancelled = new Set(db.ventes.filter(v => v.avoirDe != null).map(v => v.avoirDe));
+  const sum = f => list.filter(f).reduce((s,v) => s + v.total, 0);
+  const nbVentes = list.filter(v => v.avoirDe == null).length;
+  const nbAvoirs = list.length - nbVentes;
+  const head = `
+    <h1>${esc((db.shop && db.shop.nom) || 'Caisse')}</h1>
+    <div class="b">Historique des ventes</div>
+    <div class="sub">${esc(periodText(key))} · imprimé le ${fmtDate(new Date().toISOString())}</div>`;
+  if(!list.length) return head + '<p>Aucune vente sur cette période.</p>';
+
+  const rows = list.map(v => {
+    const note = v.avoirDe != null ? ` · Avoir (annule n° ${pad(v.avoirDe)})` : (cancelled.has(v.numero) ? ' · Annulée' : '');
+    let r = `<tr><td>${pad(v.numero)}</td><td>${fmtDate(v.date)}</td><td>${esc(modeLabel(v))}${v.ref ? ' · réf. ' + esc(v.ref) : ''}${note}</td><td class="r">${money(v.total)}</td></tr>`;
+    if(detail){
+      const items = v.lignes.map(l => `${l.qty} × ${esc(l.nom)}`).join(', ');
+      r += `<tr class="det"><td></td><td colspan="3">${items}${v.remise ? ' (remise ' + money(-v.remise) + ')' : ''}</td></tr>`;
+    }
+    return r;
+  }).join('');
+
+  return head + `
+    <table>
+      <tr><td>Ventes enregistrées</td><td class="r">${nbVentes}</td></tr>
+      <tr><td>Avoirs (annulations)</td><td class="r">${nbAvoirs}</td></tr>
+      <tr><td>Espèces</td><td class="r">${money(sum(v => v.mode === 'especes'))}</td></tr>
+      <tr><td>Mobile Money</td><td class="r">${money(sum(v => v.mode === 'mobile'))}</td></tr>
+      <tr><td>Carte</td><td class="r">${money(sum(v => v.mode === 'carte'))}</td></tr>
+      <tr class="sum"><td>Total net</td><td class="r">${money(sum(() => true))}</td></tr>
+    </table>
+    <table><thead><tr><th>N°</th><th>Date</th><th>Paiement</th><th class="r">Total</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function openHistoPrint(){
+  openSheet(`
+    <div class="grab"></div>
+    <h2>Imprimer l'historique</h2>
+    <div class="seg">${PERIODS.map(([k,l]) => `<button data-hp="${k}" class="${k === histoPeriod ? 'on' : ''}">${l}</button>`).join('')}</div>
+    <div class="chips"><button data-hd class="${histoDetail ? 'on' : ''}">Détail des articles : ${histoDetail ? 'oui' : 'non'}</button></div>
+    <div class="paper wide"><div class="rp">${historyReport(histoPeriod, histoDetail)}</div></div>
+    <div class="actions">
+      <button class="btn" data-close>Fermer</button>
+      <button class="btn primary" data-act="printhisto">Imprimer</button>
+    </div>`);
+}
+
+async function printReport(markup){
+  const pa = $('#printArea');
+  pa.className = 'rp';
+  pa.innerHTML = markup;
+  window.print();
+}
+
+/* ---------- Sauvegarde, transfert, export ---------- */
+async function deliverFile(name, text, mime){
+  const blob = new Blob([text], {type: mime});
+  try{
+    const file = new File([blob], name, {type: mime});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:name});
+      return true;
+    }
+  }catch(e){ if(e && e.name === 'AbortError') return false; }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return true;
+}
+const todayStamp = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+
+function openBackup(){
+  const last = db.lastBackup ? 'Dernière sauvegarde : ' + fmtDate(db.lastBackup) : 'Aucune sauvegarde faite sur cet appareil.';
+  openSheet(`
+    <div class="grab"></div>
+    <h2>Sauvegarde et transfert</h2>
+    <p class="status">${db.produits.filter(p => p.actif).length} produits · ${db.ventes.length} ventes<br>${last}</p>
+    <div class="stack">
+      <button class="btn primary block" data-act="export">Exporter une sauvegarde</button>
+      <button class="btn block" data-act="importpick">Importer une sauvegarde</button>
+      <button class="btn block" data-act="exportcsv">Exporter les ventes (CSV)</button>
+    </div>
+    <input id="imp" type="file" accept=".json,application/json" hidden>`);
+}
+
+async function exportBackup(){
+  const payload = {app:'caisse', version:1, exportedAt:new Date().toISOString(), data:db};
+  const ok = await deliverFile('caisse-' + todayStamp() + '.json', JSON.stringify(payload), 'application/json');
+  if(ok){ db.lastBackup = new Date().toISOString(); await save(); toast('Sauvegarde exportée'); if($('#sheet').classList.contains('open')) openBackup(); }
+}
+
+function salesCsv(){
+  const q = x => '"' + String(x).replace(/"/g,'""') + '"';
+  const rows = [['Numéro','Date','Type','Annule la vente n°','Paiement','Opérateur','Référence','Remise (Ar)','Total (Ar)','Articles']];
+  db.ventes.forEach(v => rows.push([
+    pad(v.numero), fmtDate(v.date), v.avoirDe != null ? 'Avoir' : 'Vente', v.avoirDe != null ? pad(v.avoirDe) : '',
+    modeName(v), v.operateur || '', v.ref || '', v.remise, v.total, v.lignes.map(l => l.qty + ' x ' + l.nom).join(' | ')
+  ]));
+  return '\uFEFF' + rows.map(r => r.map(q).join(';')).join('\r\n');
+}
+async function exportCsv(){
+  if(!db.ventes.length){ toast('Aucune vente à exporter'); return; }
+  await deliverFile('ventes-' + todayStamp() + '.csv', salesCsv(), 'text/csv');
+}
+
+function parseBackup(text){
+  const j = JSON.parse(text);
+  const d = j && j.data ? j.data : j;
+  if(!d || !Array.isArray(d.produits) || !Array.isArray(d.ventes)) throw new Error('format');
+  return {d, at: j.exportedAt || null};
+}
+
+function openImportChoice(){
+  const d = pendingImport.d;
+  const nbP = d.produits.filter(p => p.actif !== false).length;
+  openSheet(`
+    <div class="grab"></div>
+    <h2>Importer une sauvegarde</h2>
+    <p class="status">Fichier${pendingImport.at ? ' du ' + fmtDate(pendingImport.at) : ''} : ${nbP} produits, ${d.ventes.length} ventes.</p>
+    <div class="stack">
+      <button class="btn primary block" data-act="impprod">Reprendre les produits et réglages</button>
+      <p class="note" style="margin:0">Les noms, prix et stocks sont mis à jour. Les ventes de cet appareil sont conservées.</p>
+      <button class="btn danger block" id="impAll" data-act="impall">Tout remplacer par ce fichier</button>
+      <button class="btn block" data-close>Annuler</button>
+    </div>`);
+}
+
+async function importProducts(){
+  const d = pendingImport.d; let add = 0, upd = 0;
+  d.produits.filter(p => p.actif !== false).forEach(ip => {
+    const code = (ip.code || '').trim();
+    const ex = code ? db.produits.find(p => p.actif && (p.code || '').toLowerCase() === code.toLowerCase()) : null;
+    if(ex){ ex.nom = ip.nom; ex.prix = ip.prix; ex.stock = ip.stock == null ? null : ip.stock; upd++; }
+    else {
+      const id = db.seq++;
+      db.produits.push({id, code: (code && !codeTaken(code, null)) ? code : nextCode(), nom: ip.nom, prix: ip.prix, stock: ip.stock == null ? null : ip.stock, actif: true});
+      add++;
+    }
+  });
+  if(d.shop) db.shop = Object.assign({}, db.shop, d.shop);
+  if(typeof d.seuil === 'number') db.seuil = d.seuil;
+  pendingImport = null;
+  await save(); closeSheet(); renderAll(); toast(add + ' ajouté(s), ' + upd + ' mis à jour');
+}
+
+async function importAll(){
+  const btn = $('#impAll');
+  if(!impArmed){ impArmed = true; btn.textContent = 'Confirmer : effacer cet appareil et remplacer'; return; }
+  const d = pendingImport.d;
+  db = Object.assign({seq:1, shop:{}}, d);
+  if(!db.shop) db.shop = {};
+  db.produits.forEach(p => { if(!p.code) p.code = 'P' + String(p.id).padStart(3,'0'); });
+  const maxId = db.produits.reduce((m,p) => Math.max(m, p.id), 0);
+  db.seq = Math.max(db.seq || 1, maxId + 1);
+  cart = {}; freeLines = []; remise = 0; curClient = null; ptsUsed = 0; pendingImport = null;
+  await save(); closeSheet(); renderAll(); toast('Données importées');
+}
+
+/* ---------- Actions ---------- */
+async function seed(){
+  [['Café',1500],['Café crème',2500],['Croissant',1500],['Pain au chocolat',1800],['Jus d\'orange',3000],['Sandwich',6000]]
+    .forEach(([nom,prix]) => { const id = db.seq++; db.produits.push({id, code:'P' + String(id).padStart(3,'0'), nom, prix, stock:null, actif:true}); });
+  await save(); renderAll();
+}
+
+async function saveProduct(){
+  let code = $('#pc').value.trim();
+  const nom = $('#pn').value.trim();
+  const prix = toCents($('#pp').value);
+  const sRaw = $('#ps').value.trim();
+  const stock = sRaw === '' ? null : parseInt(sRaw, 10);
+  if(!code) code = nextCode();
+  if(codeTaken(code, editingId)){ toast('Ce code est déjà utilisé'); return; }
+  if(!nom){ toast('Indique un nom'); return; }
+  if(prix == null){ toast('Indique un prix valide'); return; }
+  const kRaw = $('#pk').value.trim(), cout = kRaw === '' ? null : toCents(kRaw);
+  if(kRaw !== '' && cout == null){ toast('Prix d\'achat invalide'); return; }
+  if(stock != null && !isFinite(stock)){ toast('Stock invalide'); return; }
+  if(editingId){
+    const p = prod(editingId); p.code = code; p.nom = nom; p.prix = prix; p.stock = stock; p.cout = cout;
+  } else {
+    db.produits.push({id: db.seq++, code, nom, prix, cout, stock, actif:true});
+  }
+  await save(); closeSheet(); renderAll();
+}
+
+async function deleteProduct(){
+  const btn = $('#delBtn');
+  if(!delArmed){ delArmed = true; btn.textContent = 'Confirmer la suppression'; return; }
+  const p = prod(editingId);
+  if(p){ p.actif = false; delete cart[p.id]; }
+  await save(); closeSheet(); renderAll();
+}
+
+async function share(){
+  if(!ticketV) return;
+  const text = ticketText(ticketV);
+  try{
+    if(navigator.share){ await navigator.share({text}); return; }
+    await navigator.clipboard.writeText(text); toast('Ticket copié');
+  }catch(e){ /* partage annulé */ }
+}
+
+/* ---------- Événements ---------- */
+document.addEventListener('click', e => {
+  const t = e.target;
+  const el = sel => t.closest(sel);
+  let x;
+  if(el('[data-close]')){ closeSheet(); return; }
+  if((x = el('[data-tab]'))){ view = x.dataset.tab; $('#main').scrollTop = 0; renderAll(); return; }
+  if((x = el('[data-add]'))){ addToCart(x.dataset.add); return; }
+  if((x = el('[data-inc]'))){ addToCart(x.dataset.inc); return; }
+  if((x = el('[data-dec]'))){ decFromCart(x.dataset.dec); return; }
+  if((x = el('[data-edit]'))){ openProduct(Number(x.dataset.edit)); return; }
+  if((x = el('[data-ticket]'))){
+    const v = db.ventes.find(v => v.numero === Number(x.dataset.ticket)); if(v) showTicket(v, false); return;
+  }
+  if((x = el('[data-stock]'))){ openStock(Number(x.dataset.stock)); return; }
+  if((x = el('[data-sadd]'))){ const i = $('#sv'); i.value = (parseInt(i.value, 10) || 0) + Number(x.dataset.sadd); return; }
+  if((x = el('[data-hp]'))){ histoPeriod = x.dataset.hp; openHistoPrint(); return; }
+  if(el('[data-hd]')){ histoDetail = !histoDetail; openHistoPrint(); return; }
+  if((x = el('[data-pm]'))){ db.printer = Object.assign({}, printerCfg(), {mode: x.dataset.pm}); save(); openPrinter(); return; }
+  if((x = el('[data-pw]'))){ db.printer = Object.assign({}, printerCfg(), {width: Number(x.dataset.pw)}); applyPaper(); save(); openPrinter(); return; }
+  if((x = el('[data-key]'))){ pressKey(x.closest('.keypad').dataset.target, x.dataset.key); return; }
+  if((x = el('[data-op]'))){ payOp = x.dataset.op; refreshPay(); return; }
+  if((x = el('[data-mode]'))){ payMode = x.dataset.mode; refreshPay(); return; }
+  if((x = el('[data-chip]'))){
+    $('#recu').value = nf.format(total());
+    refreshPay(); return;
+  }
+  if((x = el('[data-act]'))){
+    switch(x.dataset.act){
+      case 'cart': if(isWide()) closeSheet(); else openCart(); break;
+      case 'clear': cart = {}; freeLines = []; remise = 0; curClient = null; ptsUsed = 0; closeSheet(); renderAll(); break;
+      case 'pay': openPay(); break;
+      case 'validate':
+        if(payMode === 'carte') finalize('carte', null);
+        else if(payMode === 'mobile') finalize('mobile', null, {operateur: payOp, ref: ($('#mref').value || '').trim()});
+        else finalize('especes', toCents($('#recu').value));
+        break;
+      case 'addprod': openProduct(null); break;
+      case 'print': printTicket(ticketV); break;
+      case 'printer': openPrinter(); break;
+      case 'pconnect':
+        connectPrinter(printerCfg().mode).then(() => { toast('Imprimante prête'); openPrinter(); }).catch(e => { if(!(e && e.name === 'NotFoundError')) toast('Connexion impossible : ' + (e && e.message ? e.message : 'erreur')); });
+        break;
+      case 'psave': {
+        const ip = ($('#printerIP')?.value || '').trim();
+        const port = Number($('#printerPort')?.value || 9100);
+        if(!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip) || ip.split('.').some(n => Number(n) > 255)){ toast('Adresse IP invalide'); break; }
+        if(!Number.isInteger(port) || port < 1 || port > 65535){ toast('Port TCP invalide'); break; }
+        const router = ($('#printerRouter')?.value || '').trim();
+        if(router){
+          if(!/^\d{1,3}(\.\d{1,3}){3}$/.test(router) || router.split('.').some(n => Number(n) > 255)){ toast('Adresse du routeur invalide'); break; }
+          if(router.split('.').slice(0,3).join('.') !== ip.split('.').slice(0,3).join('.')){ toast('Attention : l’imprimante et le routeur ne sont pas sur le même réseau'); }
+        }
+        db.printer = Object.assign({}, printerCfg(), {ip, port, router}); printerLink = null; save(); toast('Paramètres réseau enregistrés'); openPrinter(); break;
+      }
+      case 'ptest': printTicket(testSale()); break;
+      case 'free': openFree(); break;
+      case 'addfree': addFree(false); break;
+      case 'addfreemore': addFree(true); break;
+      case 'backup': openBackup(); break;
+      case 'export': exportBackup(); break;
+      case 'exportcsv': exportCsv(); break;
+      case 'importpick': $('#imp').click(); break;
+      case 'impprod': importProducts(); break;
+      case 'impall': importAll(); break;
+      case 'histoprint': openHistoPrint(); break;
+      case 'printhisto': printReport(historyReport(histoPeriod, histoDetail)); break;
+      case 'stockprint': openStockPrint(); break;
+      case 'printstock': printReport(stockReport()); break;
+      case 'savestock': saveStock(); break;
+      case 'untrack': untrackStock(); break;
+      case 'preview': openPreview(ticketV); break;
+      case 'backticket': showTicket(ticketV, ticketFresh); break;
+      case 'settings': openSettings(); break;
+      case 'savesettings': saveSettings(); break;
+      case 'picklogo': $('#sl').click(); break;
+      case 'rmlogo': editingLogo = null; refreshLogo(); break;
+      case 'saveprod': saveProduct(); break;
+      case 'delprod': deleteProduct(); break;
+      case 'seed': seed(); break;
+      case 'share': share(); break;
+      case 'cancelsale':
+        if(!cancelArmed){ cancelArmed = true; $('#cancelBtn').textContent = 'Confirmer l\'annulation'; }
+        else cancelSale(ticketV);
+        break;
+    }
+  }
+});
+
+document.addEventListener('input', e => {
+  if(e.target.id === 'recu') refreshPay();
+  if(e.target.id === 'fa') refreshFree();
+  if(e.target.id === 'q'){ query = e.target.value; renderGrid(); }
+});
+document.addEventListener('keydown', e => {
+  if(e.target.id !== 'q' || e.key !== 'Enter') return;
+  const q = query.trim().toLowerCase(); if(!q) return;
+  const exact = db.produits.find(p => p.actif && (p.code || '').toLowerCase() === q);
+  const list = filteredProducts();
+  const target = exact || (list.length === 1 ? list[0] : null);
+  if(!target){ toast('Aucun produit avec ce code'); return; }
+  if(target.stock != null && (cart[target.id] || 0) >= target.stock){ toast('Stock épuisé pour ' + target.nom); return; }
+  query = ''; addToCart(target.id);
+  const f = $('#q'); if(f) f.focus();
+});
+document.addEventListener('change', async e => {
+  if(e.target.id === 'imp'){
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{ pendingImport = parseBackup(String(reader.result)); openImportChoice(); }
+      catch(err){ toast('Ce fichier n\'est pas une sauvegarde de la caisse'); }
+    };
+    reader.onerror = () => toast('Impossible de lire le fichier');
+    reader.readAsText(f);
+    e.target.value = '';
+    return;
+  }
+  if(e.target.id === 'sl'){
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    try{ editingLogo = await resizeLogo(f, 320); refreshLogo(); }
+    catch(err){ toast('Image illisible, essaie un autre fichier'); }
+    e.target.value = '';
+    return;
+  }
+  if(e.target.id === 'rem'){
+    const c = toCents(e.target.value || '0');
+    remise = Math.min(c == null ? 0 : c, subtotal());
+    renderAll();
+  }
+});
+
+/* Rotation de l'iPad : on réorganise l'écran */
+const onWideChange = () => { renderAll(); };
+if(wideMQ.addEventListener) wideMQ.addEventListener('change', onWideChange);
+else if(wideMQ.addListener) wideMQ.addListener(onWideChange);
+
+/* ---------- Icône écran d'accueil ---------- */
+try{
+  const c = document.createElement('canvas'); c.width = c.height = 180;
+  const g = c.getContext('2d');
+  g.fillStyle = '#0B6E5A'; g.fillRect(0,0,180,180);
+  g.fillStyle = '#fff'; g.font = '700 84px ui-rounded, system-ui, sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('Ar', 90, 98);
+  const l = document.createElement('link'); l.rel = 'apple-touch-icon'; l.href = c.toDataURL('image/png');
+  document.head.appendChild(l);
+}catch(e){}
+
+/* ---------- Mode hors connexion ---------- */
+if('serviceWorker' in navigator && location.protocol.indexOf('http') === 0){
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+
+/* ================= Plus : tableau de bord, clients, attente, caisse ================= */
+function A(k){ return db[k] || (db[k] = []); }
+function nid(k){ db[k] = (db[k] || 0) + 1; return db[k]; }
+function caisse(){ return db.caisse || (db.caisse = {ouverte:null, hist:[]}); }
+function client(){ return curClient == null ? null : (A('clients').find(c => c.id === curClient) || null); }
+function fid(){ return Object.assign({par:1000, val:10}, db.fid || {}); }
+function ptsValue(){ return ptsUsed * fid().val; }
+function clampPts(){
+  const c = client();
+  if(!c || !ptsUsed){ ptsUsed = 0; return; }
+  const room = Math.floor(Math.max(0, subtotal() - remise) / fid().val);
+  ptsUsed = Math.max(0, Math.min(ptsUsed, c.points || 0, room));
+}
+const back = () => '<button class="btn sm backrow" data-pg="menu">← Retour</button>';
+const sumBy = (list, f) => list.reduce((s, x) => s + f(x), 0);
+
+function renderPlus(){
+  resetMain();
+  const m = $('#main');
+  if(plusPage === 'dash') return renderDash();
+  if(plusPage === 'clients') return renderClients();
+  if(plusPage === 'attente') return renderAttente();
+  if(plusPage === 'caisse') return renderCaisse();
+  const open = caisse().ouverte;
+  m.innerHTML = `<div class="list">
+    <button class="item" data-pg="dash"><span>Tableau de bord<small>Ventes, bénéfices, produits les plus vendus</small></span><span>›</span></button>
+    <button class="item" data-pg="clients"><span>Clients et fidélité<small>${A('clients').length} client(s)</small></span><span>›</span></button>
+    <button class="item" data-pg="attente"><span>Tickets en attente<small>${A('attente').length} en cours</small></span><span>›</span></button>
+    <button class="item" data-pg="caisse"><span>Caisse<small>${open ? 'Ouverte depuis ' + fmtDate(open.date) : 'Fermée'}</small></span><span>›</span></button>
+  </div>`;
+}
+
+/* ---- Tableau de bord ---- */
+function renderDash(){
+  const from = periodFrom(dashPeriod);
+  const list = db.ventes.filter(v => new Date(v.date) >= from);
+  const nb = list.filter(v => v.avoirDe == null).length - list.filter(v => v.avoirDe != null).length;
+  const ca = sumBy(list, v => v.total);
+  const marge = sumBy(list, v => sumBy(v.lignes, l => l.cout != null ? (l.prix - l.cout) * l.qty : 0)) - sumBy(list, v => v.remise || 0);
+  const dep = sumBy(A('depenses').filter(d => new Date(d.date) >= from), d => d.montant);
+  const bymode = k => sumBy(list.filter(v => v.mode === k), v => v.total);
+  // 7 derniers jours
+  const days = [];
+  for(let i = 6; i >= 0; i--){ const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - i); days.push(d); }
+  const vals = days.map(d => sumBy(db.ventes.filter(v => dayKey(v.date) === dayKey(d.toISOString())), v => v.total));
+  const mx = Math.max(1, ...vals);
+  const bars = days.map((d, i) => `<div class="bc"><div class="bt"><i style="height:${Math.max(2, Math.round(vals[i] / mx * 100))}%"></i></div><span>${d.toLocaleDateString('fr-FR', {weekday:'short'}).slice(0,3)}</span></div>`).join('');
+  // top produits
+  const agg = {};
+  list.forEach(v => v.lignes.forEach(l => { const a = agg[l.nom] || (agg[l.nom] = {qty:0, ca:0}); a.qty += l.qty; a.ca += l.prix * l.qty; }));
+  const top = Object.entries(agg).filter(([, a]) => a.qty > 0).sort((a, b) => b[1].ca - a[1].ca).slice(0, 5);
+  const low = db.produits.filter(p => p.actif && p.stock != null && p.stock <= lowLimit()).length;
+  const unknownCost = list.some(v => v.lignes.some(l => l.cout == null));
+  $('#main').innerHTML = `${back()}
+    <div class="seg">${PERIODS.map(([k, l]) => `<button data-dp="${k}" class="${k === dashPeriod ? 'on' : ''}">${l}</button>`).join('')}</div>
+    <div class="stats four" style="margin-top:12px">
+      <div class="stat"><span>Chiffre d'affaires</span><b>${money(ca)}</b></div>
+      <div class="stat"><span>Tickets</span><b>${nb}</b></div>
+      <div class="stat"><span>Panier moyen</span><b>${money(nb > 0 ? Math.round(ca / nb) : 0)}</b></div>
+      <div class="stat"><span>Marge</span><b>${money(marge)}</b></div>
+      <div class="stat"><span>Dépenses</span><b>${money(dep)}</b></div>
+      <div class="stat"><span>Résultat net</span><b>${money(marge - dep)}</b></div>
+    </div>
+    ${unknownCost ? '<p class="note">La marge ne compte que les produits ayant un prix d\'achat (fiche produit).</p>' : ''}
+    <div class="dayhead">Espèces / Mobile Money / Carte</div>
+    <div class="list"><div class="item"><span>Espèces</span><span class="amt">${money(bymode('especes'))}</span></div>
+      <div class="item"><span>Mobile Money</span><span class="amt">${money(bymode('mobile'))}</span></div>
+      <div class="item"><span>Carte</span><span class="amt">${money(bymode('carte'))}</span></div></div>
+    <div class="dayhead">7 derniers jours</div>
+    <div class="bars">${bars}</div>
+    <div class="dayhead">Produits les plus vendus</div>
+    <div class="list">${top.length ? top.map(([n, a]) => `<div class="item"><span>${esc(n)}<small>${a.qty} vendu(s)</small></span><span class="amt">${money(a.ca)}</span></div>`).join('') : '<div class="item"><span>Aucune vente sur la période</span></div>'}</div>
+    ${low ? `<p class="note">${low} produit(s) en stock bas — voir l'onglet Stock.</p>` : ''}`;
+}
+
+/* ---- Clients ---- */
+function renderClients(){
+  const cl = [...A('clients')].sort((a, b) => a.nom.localeCompare(b.nom));
+  const f = fid();
+  $('#main').innerHTML = `${back()}
+    <button class="btn primary block addrow" data-act="newclient">Nouveau client</button>
+    <button class="btn block addrow" data-act="fidset">Fidélité : 1 point par ${money(f.par)} · 1 point = ${money(f.val)}</button>
+    ${cl.length ? `<div class="list">${cl.map(c => `<button class="item" data-cl="${c.id}"><span>${esc(c.nom)}<small>${esc(c.tel || 'Sans téléphone')} · ${c.visites || 0} visite(s)</small></span><span class="amt">${c.points || 0} pts</span></button>`).join('')}</div>` : '<div class="empty"><p>Aucun client pour l\'instant.</p></div>'}`;
+}
+function openClient(id){
+  editingClient = id || null; clDelArmed = false;
+  const c = id ? A('clients').find(x => x.id === id) : null;
+  openSheet(`<div class="grab"></div>
+    <h2>${c ? 'Modifier le client' : 'Nouveau client'}</h2>
+    <label for="cn">Nom</label><input id="cn" type="text" autocomplete="off" value="${c ? esc(c.nom) : ''}">
+    <label for="ct">Téléphone (facultatif)</label><input id="ct" type="text" inputmode="tel" autocomplete="off" value="${c ? esc(c.tel || '') : ''}">
+    ${c ? `<label for="cp">Points de fidélité</label><input id="cp" inputmode="numeric" autocomplete="off" value="${c.points || 0}">
+    <p class="note">Total acheté : ${money(c.achats || 0)}</p>` : ''}
+    <div class="stack" style="margin-top:16px">
+      <button class="btn primary block" data-act="saveclient">Enregistrer</button>
+      ${c ? '<button class="btn danger block" id="clDel" data-act="delclient">Supprimer le client</button>' : ''}
+    </div>`);
+}
+async function saveClient(){
+  const nom = $('#cn').value.trim(); if(!nom){ toast('Indique un nom'); return; }
+  const tel = $('#ct').value.trim();
+  if(editingClient){
+    const c = A('clients').find(x => x.id === editingClient);
+    c.nom = nom; c.tel = tel;
+    const pv = parseInt(($('#cp') || {}).value, 10); if(isFinite(pv) && pv >= 0) c.points = pv;
+  } else {
+    const c = {id: nid('cseq'), nom, tel, points: 0, achats: 0, visites: 0};
+    A('clients').push(c);
+    if(clientCtx === 'cart'){ curClient = c.id; ptsUsed = 0; }
+  }
+  await save();
+  const ctx = clientCtx; clientCtx = null;
+  if(ctx === 'cart'){ if(isWide()) closeSheet(); else openCart(); } else closeSheet();
+  renderAll();
+}
+function openFid(){
+  const f = fid();
+  openSheet(`<div class="grab"></div><h2>Programme de fidélité</h2>
+    <label for="fp">Un point gagné tous les (Ar dépensés)</label><input id="fp" inputmode="numeric" autocomplete="off" value="${f.par}">
+    <label for="fv">Valeur d'un point (Ar de remise)</label><input id="fv" inputmode="numeric" autocomplete="off" value="${f.val}">
+    <div class="actions" style="margin-top:16px"><button class="btn" data-close>Annuler</button><button class="btn primary" data-act="savefid">Enregistrer</button></div>`);
+}
+function openPickClient(){
+  clientCtx = 'cart';
+  openSheet(`<div class="grab"></div><h2>Choisir un client</h2>
+    <input id="cq" type="text" autocomplete="off" placeholder="Chercher un nom ou un téléphone">
+    <div id="cqlist" style="margin-top:10px"></div>
+    <div class="actions" style="margin-top:12px"><button class="btn" data-act="pickno">Sans client</button><button class="btn primary" data-act="newclient">Nouveau</button></div>`);
+  refreshPick();
+}
+function refreshPick(){
+  const q = (($('#cq') || {}).value || '').trim().toLowerCase();
+  const l = A('clients').filter(c => !q || c.nom.toLowerCase().includes(q) || (c.tel || '').includes(q)).slice(0, 30);
+  $('#cqlist').innerHTML = l.length ? `<div class="list">${l.map(c => `<button class="item" data-pick="${c.id}"><span>${esc(c.nom)}<small>${esc(c.tel || '')}</small></span><span class="amt">${c.points || 0} pts</span></button>`).join('')}</div>` : '<p class="note">Aucun client trouvé.</p>';
+}
+
+/* ---- Tickets en attente ---- */
+function renderAttente(){
+  const l = [...A('attente')].reverse();
+  $('#main').innerHTML = `${back()}` + (l.length ? `<div class="list">${l.map(h => {
+    const n = Object.values(h.cart).reduce((s, q) => s + q, 0) + h.freeLines.reduce((s, f) => s + f.qty, 0);
+    const t = Object.keys(h.cart).reduce((s, id) => s + (prod(id) ? prod(id).prix * h.cart[id] : 0), 0) + h.freeLines.reduce((s, f) => s + f.prix * f.qty, 0);
+    return `<div class="item"><span>${esc(h.nom || 'Ticket ' + h.id)}<small>${fmtHour(h.date)} · ${n} article(s) · ${money(t)}</small></span>
+      <span><button class="btn sm primary" data-res="${h.id}">Reprendre</button> <button class="btn sm danger" data-delhold="${h.id}">✕</button></span></div>`;
+  }).join('')}</div>` : '<div class="empty"><p>Aucun ticket en attente.</p></div>');
+}
+function openHold(){
+  if(!cartLines().length) return;
+  const c = client();
+  openSheet(`<div class="grab"></div><h2>Mettre en attente</h2>
+    <label for="hn">Nom ou numéro de table (facultatif)</label><input id="hn" type="text" autocomplete="off" value="${c ? esc(c.nom) : ''}">
+    <div class="actions" style="margin-top:16px"><button class="btn" data-close>Annuler</button><button class="btn primary" data-act="dohold">Mettre en attente</button></div>`);
+}
+async function doHold(){
+  const nom = ($('#hn').value || '').trim();
+  A('attente').push({id: nid('aseq'), nom, date: new Date().toISOString(), cart: Object.assign({}, cart), freeLines: freeLines.map(f => Object.assign({}, f)), remise, clientId: curClient});
+  cart = {}; freeLines = []; remise = 0; curClient = null; ptsUsed = 0;
+  await save(); closeSheet(); renderAll(); toast('Ticket mis en attente');
+}
+async function resumeHold(id){
+  if(cartLines().length){ toast('Mets d\'abord le panier actuel en attente'); return; }
+  const h = A('attente').find(x => x.id === id); if(!h) return;
+  cart = Object.assign({}, h.cart); freeLines = h.freeLines.map(f => Object.assign({}, f));
+  freeSeq = Math.max(freeSeq, ...freeLines.map(f => parseInt(String(f.id).slice(1), 10) + 1), 1);
+  remise = h.remise || 0; curClient = h.clientId != null ? h.clientId : null; ptsUsed = 0;
+  Object.keys(cart).forEach(k => { if(!prod(k)) delete cart[k]; });
+  db.attente = A('attente').filter(x => x.id !== id);
+  await save(); view = 'vente'; renderAll();
+}
+
+/* ---- Caisse ---- */
+function shiftData(){
+  const o = caisse().ouverte; if(!o) return null;
+  const from = new Date(o.date);
+  const ventes = sumBy(db.ventes.filter(v => new Date(v.date) >= from && v.mode === 'especes'), v => v.total);
+  const deps = A('depenses').filter(d => new Date(d.date) >= from);
+  const dep = sumBy(deps, d => d.montant);
+  const tout = sumBy(db.ventes.filter(v => new Date(v.date) >= from), v => v.total);
+  return {o, ventes, deps, dep, tout, attendu: o.fond + ventes - dep};
+}
+function renderCaisse(){
+  const sd = shiftData();
+  let html = back();
+  if(!sd){
+    html += `<div class="receipt"><label for="fd">Fond de caisse (Ar)</label>
+      <input id="fd" inputmode="decimal" autocomplete="off" placeholder="0">
+      <button class="btn primary block" style="margin-top:12px" data-act="opencash">Ouvrir la caisse</button></div>`;
+  } else {
+    html += `<div class="stats four">
+      <div class="stat"><span>Fond de caisse</span><b>${money(sd.o.fond)}</b></div>
+      <div class="stat"><span>Ventes espèces</span><b>${money(sd.ventes)}</b></div>
+      <div class="stat"><span>Dépenses</span><b>${money(sd.dep)}</b></div>
+      <div class="stat"><span>Attendu en caisse</span><b>${money(sd.attendu)}</b></div></div>
+      <div class="actions addrow"><button class="btn" data-act="newdep">Ajouter une dépense</button><button class="btn primary" data-act="closecash">Clôturer</button></div>
+      <div class="dayhead">Dépenses de ce service</div>
+      <div class="list">${sd.deps.length ? sd.deps.map(d => `<div class="item"><span>${esc(d.motif || 'Dépense')}<small>${fmtHour(d.date)}</small></span><span class="amt neg">−${money(d.montant)}</span></div>`).join('') : '<div class="item"><span>Aucune dépense</span></div>'}</div>`;
+  }
+  const h = [...caisse().hist].reverse().slice(0, 10);
+  if(h.length) html += `<div class="dayhead">Services clôturés</div><div class="list">${h.map((z, i) => `<button class="item" data-zp="${caisse().hist.length - 1 - i}"><span>${fmtDate(z.cloture)}<small>Attendu ${money(z.attendu)} · compté ${money(z.compte)}</small></span><span class="amt${z.ecart < 0 ? ' neg' : ''}">${z.ecart > 0 ? '+' : ''}${money(z.ecart)}</span></button>`).join('')}</div><p class="note">Touchez un service pour imprimer son rapport.</p>`;
+  $('#main').innerHTML = html;
+}
+async function openCash(){
+  const f = toCents($('#fd').value || '0'); if(f == null){ toast('Montant invalide'); return; }
+  caisse().ouverte = {date: new Date().toISOString(), fond: f};
+  await save(); renderAll(); toast('Caisse ouverte');
+}
+function openDep(){
+  openSheet(`<div class="grab"></div><h2>Nouvelle dépense</h2>
+    <label for="dm">Montant (Ar)</label><input id="dm" inputmode="decimal" autocomplete="off" placeholder="0">
+    <label for="dn">Motif</label><input id="dn" type="text" autocomplete="off" placeholder="Ex. : transport, sacs, électricité">
+    <div class="actions" style="margin-top:16px"><button class="btn" data-close>Annuler</button><button class="btn primary" data-act="savedep">Enregistrer</button></div>`);
+}
+async function saveDep(){
+  const m = toCents($('#dm').value); if(m == null || m <= 0){ toast('Indique un montant'); return; }
+  A('depenses').push({id: nid('dseq'), date: new Date().toISOString(), montant: m, motif: ($('#dn').value || '').trim()});
+  await save(); closeSheet(); renderAll();
+}
+function openClose(){
+  const sd = shiftData(); if(!sd) return;
+  openSheet(`<div class="grab"></div><h2>Clôturer la caisse</h2>
+    <div class="due">${money(sd.attendu)}</div><p class="note" style="text-align:center">Montant attendu en espèces</p>
+    <label for="zc">Espèces comptées (Ar)</label><input id="zc" inputmode="decimal" autocomplete="off" placeholder="0">
+    <div id="zecart" class="rendu"></div>
+    <div class="actions" style="margin-top:16px"><button class="btn" data-close>Annuler</button><button class="btn primary" data-act="doclose">Clôturer</button></div>
+    <button class="btn block" style="margin-top:10px" data-act="doclosep">Clôturer et imprimer</button>`);
+}
+function refreshEcart(){
+  const sd = shiftData(); const c = toCents($('#zc').value); const r = $('#zecart');
+  if(!sd || c == null){ r.textContent = ''; r.className = 'rendu'; return; }
+  const e = c - sd.attendu;
+  r.textContent = e === 0 ? 'Caisse juste' : (e > 0 ? 'Excédent : ' + money(e) : 'Manque : ' + money(-e));
+  r.className = 'rendu ' + (e >= 0 ? 'ok' : 'ko');
+}
+async function doClose(print){
+  const sd = shiftData(); if(!sd) return;
+  const c = toCents($('#zc').value || ''); if(c == null){ toast('Indique le montant compté'); return; }
+  const z = {ouverture: sd.o.date, cloture: new Date().toISOString(), fond: sd.o.fond, ventesEsp: sd.ventes, total: sd.tout, depenses: sd.dep, attendu: sd.attendu, compte: c, ecart: c - sd.attendu};
+  caisse().hist.push(z); caisse().ouverte = null;
+  await save(); closeSheet(); renderAll();
+  if(print) printReport(zReport(z));
+}
+function zReport(z){
+  return `<h1>${esc((db.shop && db.shop.nom) || 'Caisse')}</h1>
+    <div class="b">Clôture de caisse</div>
+    <div class="sub">Du ${fmtDate(z.ouverture)} au ${fmtDate(z.cloture)}</div>
+    <table>
+      <tr><td>Fond de caisse</td><td class="r">${money(z.fond)}</td></tr>
+      <tr><td>Ventes en espèces</td><td class="r">${money(z.ventesEsp)}</td></tr>
+      <tr><td>Dépenses</td><td class="r">−${money(z.depenses)}</td></tr>
+      <tr class="sum"><td>Attendu en caisse</td><td class="r">${money(z.attendu)}</td></tr>
+      <tr><td>Espèces comptées</td><td class="r">${money(z.compte)}</td></tr>
+      <tr class="sum"><td>Écart</td><td class="r">${z.ecart > 0 ? '+' : ''}${money(z.ecart)}</td></tr>
+      <tr><td>Total des ventes (tous paiements)</td><td class="r">${money(z.total)}</td></tr>
+    </table>`;
+}
+
+document.addEventListener('click', async e => {
+  const el = sel => e.target.closest(sel);
+  let x;
+  if((x = el('[data-pg]'))){ plusPage = x.dataset.pg; renderAll(); return; }
+  if((x = el('[data-dp]'))){ dashPeriod = x.dataset.dp; renderAll(); return; }
+  if((x = el('[data-cl]'))){ clientCtx = null; openClient(Number(x.dataset.cl)); return; }
+  if((x = el('[data-pick]'))){
+    curClient = Number(x.dataset.pick); ptsUsed = 0; clientCtx = null;
+    if(isWide()) closeSheet(); else openCart();
+    renderAll(); return;
+  }
+  if((x = el('[data-res]'))){ resumeHold(Number(x.dataset.res)); return; }
+  if((x = el('[data-delhold]'))){
+    db.attente = A('attente').filter(h => h.id !== Number(x.dataset.delhold)); await save(); renderAll(); return;
+  }
+  if((x = el('[data-zp]'))){ const z = caisse().hist[Number(x.dataset.zp)]; if(z) printReport(zReport(z)); return; }
+  if((x = el('[data-act]'))){
+    switch(x.dataset.act){
+      case 'hold': openHold(); break;
+      case 'dohold': doHold(); break;
+      case 'pickclient': openPickClient(); break;
+      case 'pickno': curClient = null; ptsUsed = 0; clientCtx = null; if(isWide()) closeSheet(); else openCart(); renderAll(); break;
+      case 'usepts': {
+        if(ptsUsed){ ptsUsed = 0; }
+        else { const c = client(); if(c) ptsUsed = Math.min(c.points || 0, Math.floor(Math.max(0, subtotal() - remise) / fid().val)); }
+        renderAll(); break;
+      }
+      case 'newclient': openClient(null); break;
+      case 'saveclient': saveClient(); break;
+      case 'delclient':
+        if(!clDelArmed){ clDelArmed = true; $('#clDel').textContent = 'Confirmer la suppression'; }
+        else {
+          db.clients = A('clients').filter(c => c.id !== editingClient);
+          if(curClient === editingClient){ curClient = null; ptsUsed = 0; }
+          await save(); closeSheet(); renderAll();
+        }
+        break;
+      case 'fidset': openFid(); break;
+      case 'savefid': {
+        const par = parseInt($('#fp').value, 10), val = parseInt($('#fv').value, 10);
+        if(!(par > 0) || !(val > 0)){ toast('Valeurs invalides'); break; }
+        db.fid = {par, val}; await save(); closeSheet(); renderAll(); break;
+      }
+      case 'opencash': openCash(); break;
+      case 'newdep': openDep(); break;
+      case 'savedep': saveDep(); break;
+      case 'closecash': openClose(); break;
+      case 'doclose': doClose(false); break;
+      case 'doclosep': doClose(true); break;
+    }
+  }
+});
+document.addEventListener('input', e => {
+  if(e.target.id === 'cq') refreshPick();
+  if(e.target.id === 'zc') refreshEcart();
+});
+
+
+/* ================= Imprimantes (à la manière de Loyverse) ================= */
+let _np;
+const NP = () => {
+  if(_np) return _np;
+  const C = window.Capacitor; if(!C) return null;
+  try{
+    if(C.Plugins && C.Plugins.NetworkPrinter) _np = C.Plugins.NetworkPrinter;
+    else if(typeof C.registerPlugin === 'function' && (!C.isNativePlatform || C.isNativePlatform())) _np = C.registerPlugin('NetworkPrinter');
+  }catch(e){}
+  return _np || null;
+};
+let editPr = null, foundDev = [], prDelArmed = false, prBusy = false;
+
+function printers(){
+  if(!db.printers){
+    db.printers = [];
+    const o = db.printer;
+    if(o && o.mode && o.mode !== 'system') db.printers.push({id: nid('pseq'), nom: 'Imprimante', iface: o.mode, ip: o.ip || '', port: o.port || 9100, router: o.router || '', width: o.width || 80, recus: true, auto: false, copies: 1, cut: true, drawer: false, addr: '', addrName: '', usbId: ''});
+  }
+  return db.printers;
+}
+const ifaceLabel = p => ({bluetooth:'Bluetooth', usb:'USB', network:'Ethernet', system:'Système'}[p.iface] || p.iface) +
+  (p.iface === 'network' && p.ip ? ' ' + p.ip : '') + ((p.iface === 'bluetooth' || p.iface === 'usb') && p.addrName ? ' · ' + p.addrName : '');
+
+async function sendTo(pr, bytes){
+  const api = NP(), data = Array.from(bytes);
+  if(pr.iface === 'network'){
+    if(!api || !api.print) throw new Error('Module réseau natif absent (voir le guide)');
+    if(!pr.ip) throw new Error('Adresse IP manquante');
+    await api.print({host: pr.ip, port: pr.port || 9100, data}); return;
+  }
+  if(pr.iface === 'bluetooth' && api && api.printBluetooth){
+    if(!pr.addr) throw new Error('Aucune imprimante Bluetooth choisie');
+    await api.printBluetooth({address: pr.addr, data}); return;
+  }
+  if(pr.iface === 'usb' && api && api.printUsb){
+    if(!pr.usbId) throw new Error('Aucune imprimante USB choisie');
+    await api.printUsb({deviceId: pr.usbId, data}); return;
+  }
+  if(!printerLink || printerLink.mode !== pr.iface) await connectPrinter(pr.iface);
+  await printerLink.send(bytes);
+}
+
+function systemPrint(v){
+  $('#printArea').className = 'tk';
+  $('#printArea').innerHTML = ticketMarkup(v);
+  return Promise.all([...document.querySelectorAll('#printArea img')].map(i => i.decode ? i.decode().catch(() => {}) : null)).then(() => window.print());
+}
+
+async function printTicket(v, auto){
+  if(!v) return;
+  let list = printers().filter(p => p.recus);
+  if(auto) list = list.filter(p => p.auto && p.iface !== 'system');
+  if(!list.length){ if(!auto) await systemPrint(v); return; }
+  let sys = false;
+  for(const pr of list){
+    if(pr.iface === 'system'){ sys = true; continue; }
+    try{
+      for(let i = 0; i < (pr.copies || 1); i++) await sendTo(pr, escposBytes(v, pr.width === 58 ? 32 : 48, {cut: pr.cut !== false, drawer: !!pr.drawer && v.mode === 'especes'}));
+    }catch(e){
+      if(!(e && e.name === 'NotFoundError')) toast(esc(pr.nom) + ' : ' + (e && e.message ? e.message : 'impression impossible'));
+    }
+  }
+  if(sys && !auto) await systemPrint(v);
+}
+function autoPrint(v){ if(printers().some(p => p.recus && p.auto && p.iface !== 'system')) printTicket(v, true); }
+
+function openPrinter(){
+  const l = printers();
+  openSheet(`<div class="grab"></div><h2>Imprimantes</h2>
+    ${l.length ? `<div class="list">${l.map(p => `<button class="item" data-pr="${p.id}"><span>${esc(p.nom)}<small>${esc(ifaceLabel(p))} · ${p.width} mm${p.recus ? ' · reçus' : ''}${p.auto ? ' · auto' : ''}</small></span><span>›</span></button>`).join('')}</div>`
+      : '<p class="note">Aucune imprimante enregistrée : le ticket s\'imprime avec le système de l\'appareil.</p>'}
+    <button class="btn primary block" style="margin-top:12px" data-act="padd">Ajouter une imprimante</button>
+    <button class="btn block" style="margin-top:8px" data-close>Fermer</button>`);
+}
+
+function syncPr(){
+  if(!editPr) return;
+  const g = id => document.getElementById(id);
+  if(g('prn')) editPr.nom = g('prn').value.trim();
+  if(g('prip')) editPr.ip = g('prip').value.trim();
+  if(g('prport')) editPr.port = parseInt(g('prport').value, 10) || 9100;
+  if(g('prrt')) editPr.router = g('prrt').value.trim();
+}
+function openPrEdit(){
+  const e = editPr, native = !!NP();
+  const tg = (k, label) => `<button data-tg="${k}" class="${e[k] ? 'on' : ''}">${label} : ${e[k] ? 'oui' : 'non'}</button>`;
+  const ifs = [['bluetooth','Bluetooth'],['usb','USB'],['network','Ethernet'],['system','Système']];
+  let conn = '';
+  if(e.iface === 'bluetooth' || e.iface === 'usb'){
+    const cur = e.iface === 'bluetooth' ? e.addr : e.usbId;
+    conn = `<label>Imprimante ${e.iface === 'bluetooth' ? 'Bluetooth' : 'USB'}</label>
+      <p class="status">${cur ? 'Choisie : ' + esc(e.addrName || cur) : 'Aucune imprimante choisie'}</p>
+      <button class="btn block" data-act="pscan">${native ? 'Rechercher les imprimantes' + (e.iface === 'bluetooth' ? ' associées' : ' USB') : 'Choisir une imprimante'}</button>
+      ${foundDev.length ? `<div class="list" style="margin-top:8px">${foundDev.map((d, i) => `<button class="item" data-fd="${i}"><span>${esc(d.name || 'Sans nom')}<small>${esc(d.address || d.id || '')}</small></span><span>›</span></button>`).join('')}</div>` : ''}
+      ${e.iface === 'bluetooth' && native && !foundDev.length ? '<p class="note">Associe d\'abord l\'imprimante dans Paramètres Android › Bluetooth (code 0000 ou 1234).</p>' : ''}
+      ${!native ? '<p class="note">Hors application Android, la connexion est à refaire à chaque ouverture.</p>' : ''}`;
+  } else if(e.iface === 'network'){
+    const devList = foundDev.length ? `<div class="list" style="margin-top:8px">${foundDev.map((d, i) => `<button class="item" data-fd="${i}"><span>${esc(d.name)}<small>${esc(d.address || '')}</small></span><span>›</span></button>`).join('')}</div>` : '';
+    conn = `<p class="status">Module réseau natif : ${native ? 'détecté' : 'absent (utilisez l\'application Android)'}</p>
+      <button class="btn block" data-act="pscan" style="margin-bottom:8px">Rechercher sur le réseau</button>${devList}
+      <label for="prip">Adresse IP de l'imprimante</label><input id="prip" type="text" inputmode="decimal" autocomplete="off" placeholder="192.168.1.50" value="${esc(e.ip || '')}">
+      <label for="prport">Port</label><input id="prport" inputmode="numeric" autocomplete="off" value="${e.port || 9100}">
+      <label for="prrt">Routeur (facultatif)</label><input id="prrt" type="text" inputmode="decimal" autocomplete="off" placeholder="192.168.1.1" value="${esc(e.router || '')}">`;
+  } else conn = '<p class="note">Utilise l\'impression de l\'appareil (imprimante Wi-Fi ou installée sur Android).</p>';
+  openSheet(`<div class="grab"></div><h2>${e.id ? 'Modifier l\'imprimante' : 'Nouvelle imprimante'}</h2>
+    <label for="prn">Nom</label><input id="prn" type="text" autocomplete="off" value="${esc(e.nom)}">
+    <label>Interface</label>
+    <div class="seg">${ifs.map(([k, l]) => `<button data-pi="${k}" class="${e.iface === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+    ${conn}
+    <label>Largeur du papier</label>
+    <div class="seg"><button data-wd="58" class="${e.width === 58 ? 'on' : ''}">58 mm</button><button data-wd="80" class="${e.width === 80 ? 'on' : ''}">80 mm</button></div>
+    <div class="chips">${tg('recus', 'Imprimer les reçus')}${tg('auto', 'Impression automatique')}${tg('cut', 'Couper le papier')}${tg('drawer', 'Ouvrir le tiroir-caisse')}</div>
+    <div class="row"><span>Nombre de copies</span><span><button class="btn sm" data-cp="-1">−</button> <b>${e.copies || 1}</b> <button class="btn sm" data-cp="1">+</button></span></div>
+    <div class="actions" style="margin-top:12px"><button class="btn" data-act="pback">Retour</button><button class="btn primary" data-act="psave2">Enregistrer</button></div>
+    <button class="btn block" style="margin-top:8px" data-act="ptest2">Impression test</button>
+    ${e.id ? '<button class="btn danger block" id="prDel" style="margin-top:8px" data-act="pdel">Supprimer l\'imprimante</button>' : ''}`);
+}
+
+document.addEventListener('click', async e => {
+  const el = sel => e.target.closest(sel);
+  let x;
+  if((x = el('[data-pr]'))){ const p = printers().find(q => q.id === Number(x.dataset.pr)); if(p){ editPr = Object.assign({}, p); foundDev = []; prDelArmed = false; openPrEdit(); } return; }
+  if(!editPr) { if(el('[data-act="padd"]')) {} else return; }
+  if((x = el('[data-pi]'))){ syncPr(); editPr.iface = x.dataset.pi; foundDev = []; openPrEdit(); return; }
+  if((x = el('[data-wd]'))){ syncPr(); editPr.width = Number(x.dataset.wd); openPrEdit(); return; }
+  if((x = el('[data-tg]'))){ syncPr(); editPr[x.dataset.tg] = !editPr[x.dataset.tg]; openPrEdit(); return; }
+  if((x = el('[data-cp]'))){ syncPr(); editPr.copies = Math.max(1, Math.min(5, (editPr.copies || 1) + Number(x.dataset.cp))); openPrEdit(); return; }
+  if((x = el('[data-fd]'))){
+    syncPr(); const d = foundDev[Number(x.dataset.fd)]; if(!d) return;
+    if(editPr.iface === 'network'){ editPr.ip = d.ip; foundDev = []; openPrEdit(); return; }
+    if(editPr.iface === 'bluetooth') editPr.addr = d.address; else editPr.usbId = d.id;
+    editPr.addrName = d.name || d.address || d.id; foundDev = []; openPrEdit(); return;
+  }
+  if((x = el('[data-act]'))){
+    switch(x.dataset.act){
+      case 'padd': {
+        const n = printers().length;
+        editPr = {id: null, nom: 'Imprimante ' + (n + 1), iface: (NP() || navigator.bluetooth) ? 'bluetooth' : 'system', width: 80, recus: true, auto: true, copies: 1, cut: true, drawer: false, ip: '', port: 9100, router: '', addr: '', addrName: '', usbId: ''};
+        foundDev = []; prDelArmed = false; openPrEdit(); break;
+      }
+      case 'pback': editPr = null; openPrinter(); break;
+      case 'pscan': {
+        syncPr(); const api = NP();
+        try{
+          if(editPr.iface === 'network'){
+            if(!api || !api.scanNetwork) throw new Error('Module réseau natif absent ou à mettre à jour');
+            toast('Recherche en cours…');
+            const r = await api.scanNetwork({port: editPr.port || 9100});
+            foundDev = (r.ips || []).map(ip => ({name: ip, address: 'Port ' + (editPr.port || 9100), ip}));
+            if(!foundDev.length) toast('Aucune imprimante trouvée sur le réseau');
+          }
+          else if(api && editPr.iface === 'bluetooth' && api.listBluetooth){ foundDev = (await api.listBluetooth()).devices || []; if(!foundDev.length) toast('Aucune imprimante associée trouvée'); }
+          else if(api && editPr.iface === 'usb' && api.listUsb){ foundDev = (await api.listUsb()).devices || []; if(!foundDev.length) toast('Aucun appareil USB détecté'); }
+          else { await connectPrinter(editPr.iface); if(editPr.iface === 'bluetooth'){ editPr.addr = 'web'; } else { editPr.usbId = 'web'; } editPr.addrName = printerLink ? printerLink.name : 'Choisie'; }
+        }catch(err){ if(!(err && err.name === 'NotFoundError')) toast(err && err.message ? err.message : 'Recherche impossible'); }
+        openPrEdit(); break;
+      }
+      case 'ptest2': {
+        syncPr(); if(prBusy) break; prBusy = true;
+        try{
+          if(editPr.iface === 'system') await systemPrint(testSale());
+          else { await sendTo(editPr, escposBytes(testSale(), editPr.width === 58 ? 32 : 48, {cut: editPr.cut !== false, drawer: !!editPr.drawer})); toast('Test envoyé'); }
+        }catch(err){ if(!(err && err.name === 'NotFoundError')) toast(err && err.message ? err.message : 'Échec du test'); }
+        prBusy = false; break;
+      }
+      case 'psave2': {
+        syncPr();
+        if(!editPr.nom){ toast('Indique un nom'); break; }
+        if(editPr.iface === 'network' && !/^\d{1,3}(\.\d{1,3}){3}$/.test(editPr.ip)){ toast('Adresse IP invalide'); break; }
+        if(editPr.iface === 'bluetooth' && !editPr.addr){ toast('Choisis une imprimante Bluetooth'); break; }
+        if(editPr.iface === 'usb' && !editPr.usbId){ toast('Choisis une imprimante USB'); break; }
+        if(editPr.id){ const i = printers().findIndex(q => q.id === editPr.id); if(i >= 0) db.printers[i] = Object.assign({}, editPr); }
+        else { editPr.id = nid('pseq'); printers().push(Object.assign({}, editPr)); }
+        db.printer = Object.assign({}, printerCfg(), {width: editPr.width}); applyPaper();
+        printerLink = null; await save(); editPr = null; openPrinter(); break;
+      }
+      case 'pdel':
+        if(!prDelArmed){ prDelArmed = true; $('#prDel').textContent = 'Confirmer la suppression'; }
+        else { db.printers = printers().filter(q => q.id !== editPr.id); printerLink = null; await save(); editPr = null; openPrinter(); }
+        break;
+    }
+  }
+});
+
+/* ---------- Démarrage ---------- */
+(async function init(){
+  const saved = await store.get();
+  if(saved && Array.isArray(saved.produits) && Array.isArray(saved.ventes)) db = Object.assign({seq:1, shop:{}}, saved);
+  if(!db.shop) db.shop = {};
+  if(!db.shop.nom) db.shop.nom = 'LAITERIE MAMINAINA';
+  db.produits.forEach(p => { if(!p.code) p.code = 'P' + String(p.id).padStart(3,'0'); delete p.photo; });
+  save();
+  applyPaper();
+  renderAll();
+})();
+
+})();
+</script>
+</body>
+</html>

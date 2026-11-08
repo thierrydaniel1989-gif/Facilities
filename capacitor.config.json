@@ -1,0 +1,6 @@
+{
+  "appId": "com.caisse.app",
+  "appName": "Caisse",
+  "webDir": "www",
+  "android": { "allowMixedContent": true }
+}
